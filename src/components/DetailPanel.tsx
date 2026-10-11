@@ -1,4 +1,4 @@
-import { CATEGORY_BY_ID } from "../data/categories";
+import { CATEGORY_BY_ID, categoryColor, categoryInk, categoryTint } from "../data/categories";
 import { resolveRefs } from "../data/exams";
 import { formatRange } from "../lib/lanes";
 import type { Selection } from "../types";
@@ -65,9 +65,9 @@ export function DetailPanel({ selection, onClose }: Props) {
 
       <span
         className="detail__eyebrow"
-        style={{ background: category.tint, color: category.color }}
+        style={{ background: categoryTint(category.id), color: categoryInk(category.id) }}
       >
-        <span className="marker__dot" style={{ background: category.color }} />
+        <span className="marker__dot" style={{ background: categoryColor(category.id) }} />
         {category.label}
         {selection.kind === "event" && (
           <span style={{ opacity: 0.75 }}>

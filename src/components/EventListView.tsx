@@ -1,4 +1,4 @@
-import { CATEGORY_BY_ID } from "../data/categories";
+import { CATEGORY_BY_ID, categoryColor } from "../data/categories";
 import { formatRange } from "../lib/lanes";
 import type { TimelineEvent } from "../types";
 
@@ -42,7 +42,7 @@ export function EventListView({ events, selectedId, onSelect }: Props) {
                       : undefined
                   }
                 >
-                  <span className="card__bar" style={{ background: cat.color }} />
+                  <span className="card__bar" style={{ background: categoryColor(cat.id) }} />
                   <span className="card__body">
                     <span className="card__meta">{formatRange(event)}</span>
                     <span className="card__title">{event.title}</span>

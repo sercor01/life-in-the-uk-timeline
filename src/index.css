@@ -1,17 +1,139 @@
 :root {
+  color-scheme: light;
+
+  /* surfaces & text */
   --bg: #f6f7fb;
   --panel: #ffffff;
   --ink: #101828;
-  --muted: #667085;
-  --faint: #98a2b3;
+  --muted: #5f6a7c;
+  --faint: #626d81;
   --line: #e4e7ec;
-  --axis: #cbd5e1;
+  --axis: #78879b;
+  --ref-text: #344054;
+
+  /* accent */
   --accent: #4f46e5;
   --accent-soft: #eef2ff;
+  --accent-ring: rgba(79, 70, 229, 0.22);
+  --accent-window: rgba(79, 70, 229, 0.14);
+  --accent-window-active: rgba(79, 70, 229, 0.22);
+  --focus: #4f46e5;
+
+  /* effects */
+  --glass: rgba(255, 255, 255, 0.82);
+  --grad-top: #ffffff;
+  --grad-bottom: #fbfcfe;
   --shadow: 0 1px 2px rgba(16, 24, 40, 0.06), 0 8px 24px rgba(16, 24, 40, 0.08);
+  --shadow-sm: 0 1px 2px rgba(16, 24, 40, 0.08);
+  --shadow-md: 0 6px 16px rgba(16, 24, 40, 0.16);
+  --shadow-up: 0 -12px 40px rgba(16, 24, 40, 0.18);
+
+  /* era bands */
+  --era-prehistory: #faf7f0;
+  --era-roman: #f7f1ea;
+  --era-anglo: #f0f6f2;
+  --era-medieval: #f4f1fb;
+  --era-tudor: #f9f1f1;
+  --era-georgian: #eef4f9;
+  --era-victorian: #f0f6f8;
+  --era-modern: #f4f5f7;
+
+  /* categories: graphic / chip background / accessible text on chip */
+  --c-prehistory: #8a6d3b;
+  --c-prehistory-tint: #f3ecd8;
+  --c-prehistory-ink: #6b5225;
+  --c-monarchy: #7c3aed;
+  --c-monarchy-tint: #ede9fe;
+  --c-monarchy-ink: #5b21b6;
+  --c-war: #dc2626;
+  --c-war-tint: #fee2e2;
+  --c-war-ink: #b91c1c;
+  --c-rights: #0891b2;
+  --c-rights-tint: #cffafe;
+  --c-rights-ink: #0e7490;
+  --c-religion: #16a34a;
+  --c-religion-tint: #dcfce7;
+  --c-religion-ink: #15803d;
+  --c-science: #2563eb;
+  --c-science-tint: #dbeafe;
+  --c-science-ink: #1d4ed8;
+  --c-arts: #db2777;
+  --c-arts-tint: #fce7f3;
+  --c-arts-ink: #be185d;
+  --c-sport: #ea580c;
+  --c-sport-tint: #ffedd5;
+  --c-sport-ink: #c2410c;
+
   --radius: 14px;
   --header-h: 60px;
-  color-scheme: light;
+}
+
+/*
+ * Dark palette. Every text/accent pair here meets WCAG 2.1 AA (>= 4.5:1 for
+ * text, >= 3:1 for the axis and category graphics) against its backgrounds.
+ */
+@media (prefers-color-scheme: dark) {
+  :root {
+    color-scheme: dark;
+
+    --bg: #0b1220;
+    --panel: #141b2d;
+    --ink: #e8edf6;
+    --muted: #aab3c5;
+    --faint: #949db0;
+    --line: #2a3550;
+    --axis: #647296;
+    --ref-text: #cbd3e1;
+
+    --accent: #a5b4fc;
+    --accent-soft: #232b4a;
+    --accent-ring: rgba(165, 180, 252, 0.32);
+    --accent-window: rgba(165, 180, 252, 0.18);
+    --accent-window-active: rgba(165, 180, 252, 0.28);
+    --focus: #a5b4fc;
+
+    --glass: rgba(17, 23, 38, 0.85);
+    --grad-top: #141b2d;
+    --grad-bottom: #101728;
+    --shadow: 0 1px 2px rgba(0, 0, 0, 0.5), 0 10px 28px rgba(0, 0, 0, 0.5);
+    --shadow-sm: 0 1px 2px rgba(0, 0, 0, 0.5);
+    --shadow-md: 0 8px 20px rgba(0, 0, 0, 0.55);
+    --shadow-up: 0 -12px 40px rgba(0, 0, 0, 0.6);
+
+    --era-prehistory: #16140e;
+    --era-roman: #14120f;
+    --era-anglo: #0f1714;
+    --era-medieval: #121124;
+    --era-tudor: #171016;
+    --era-georgian: #0e1620;
+    --era-victorian: #0e161a;
+    --era-modern: #12141a;
+
+    --c-prehistory: #c9a86a;
+    --c-prehistory-tint: #241d0f;
+    --c-prehistory-ink: #dcc08a;
+    --c-monarchy: #b39bfb;
+    --c-monarchy-tint: #221a3d;
+    --c-monarchy-ink: #cab6ff;
+    --c-war: #f87171;
+    --c-war-tint: #3a1416;
+    --c-war-ink: #fca5a5;
+    --c-rights: #3fc4d8;
+    --c-rights-tint: #0a2630;
+    --c-rights-ink: #5fd4e6;
+    --c-religion: #4ade80;
+    --c-religion-tint: #0d2b18;
+    --c-religion-ink: #6ee7a0;
+    --c-science: #7ba6ff;
+    --c-science-tint: #15233f;
+    --c-science-ink: #9db9ff;
+    --c-arts: #f472b6;
+    --c-arts-tint: #39122a;
+    --c-arts-ink: #f9a8d4;
+    --c-sport: #fb923c;
+    --c-sport-tint: #3a1c0c;
+    --c-sport-ink: #fdba74;
+  }
 }
 
 * {
@@ -38,6 +160,11 @@ button {
   font: inherit;
   color: inherit;
   cursor: pointer;
+}
+
+:focus-visible {
+  outline: 2px solid var(--focus);
+  outline-offset: 2px;
 }
 
 /* ------------------------------------------------------------------ layout */
@@ -119,7 +246,11 @@ button {
   border: 1px solid var(--line);
   background: var(--bg);
   font-size: 14px;
-  outline: none;
+}
+
+.search input::placeholder {
+  color: var(--faint);
+  opacity: 1;
 }
 
 .search input:focus {
@@ -215,7 +346,7 @@ button {
   flex: 1;
   min-height: 0;
   overflow: hidden;
-  background: linear-gradient(180deg, #ffffff 0%, #fbfcfe 100%);
+  background: linear-gradient(180deg, var(--grad-top) 0%, var(--grad-bottom) 100%);
   touch-action: none;
   user-select: none;
 }
@@ -264,7 +395,7 @@ button {
   border-radius: 999px;
   border: 1px solid var(--line);
   background: var(--panel);
-  box-shadow: 0 1px 2px rgba(16, 24, 40, 0.08);
+  box-shadow: var(--shadow-sm);
   white-space: nowrap;
   font-size: 12px;
   line-height: 1.1;
@@ -273,13 +404,13 @@ button {
 
 .marker:hover {
   transform: translate(-50%, -50%) translateY(-1px);
-  box-shadow: 0 6px 16px rgba(16, 24, 40, 0.16);
+  box-shadow: var(--shadow-md);
   z-index: 5;
 }
 
 .marker[aria-pressed="true"] {
   border-color: var(--accent);
-  box-shadow: 0 0 0 3px var(--accent-soft), 0 8px 18px rgba(79, 70, 229, 0.2);
+  box-shadow: 0 0 0 3px var(--accent-ring), var(--shadow-md);
   z-index: 6;
 }
 
@@ -368,7 +499,7 @@ button {
   gap: 8px;
   font-size: 12px;
   color: var(--muted);
-  background: rgba(255, 255, 255, 0.82);
+  background: var(--glass);
   backdrop-filter: blur(6px);
   padding: 6px 10px;
   border-radius: 999px;
@@ -405,21 +536,21 @@ button {
   height: 14px;
   border-radius: 2px;
   transform: translateX(-1px);
-  opacity: 0.75;
+  opacity: 0.9;
 }
 
 .overview__window {
   position: absolute;
   top: 0;
   bottom: 0;
-  background: rgba(79, 70, 229, 0.14);
+  background: var(--accent-window);
   border-left: 2px solid var(--accent);
   border-right: 2px solid var(--accent);
   pointer-events: none;
 }
 
 .overview__track:active .overview__window {
-  background: rgba(79, 70, 229, 0.22);
+  background: var(--accent-window-active);
 }
 
 /* ------------------------------------------------------------ detail panel */
@@ -512,7 +643,7 @@ button {
   margin: 0;
   font-size: 13.5px;
   line-height: 1.55;
-  color: #344054;
+  color: var(--ref-text);
 }
 
 .ref-card__q {
@@ -568,7 +699,14 @@ button {
 }
 
 .legend__item[aria-pressed="false"] {
-  opacity: 0.42;
+  color: var(--faint);
+}
+
+/* Off state is shown with a hollow swatch rather than low opacity, so the
+   label keeps its contrast. */
+.legend__item[aria-pressed="false"] .legend__swatch {
+  background: transparent !important;
+  border: 2px solid currentColor;
 }
 
 .legend__swatch {
@@ -621,7 +759,7 @@ button {
   border-radius: 12px;
   padding: 12px 14px;
   margin-bottom: 8px;
-  box-shadow: 0 1px 2px rgba(16, 24, 40, 0.04);
+  box-shadow: var(--shadow-sm);
 }
 
 .card:hover {
@@ -698,7 +836,7 @@ button {
 
 .month--movable {
   border-style: dashed;
-  background: #fcfcfd;
+  background: var(--bg);
 }
 
 .month__name {
@@ -789,7 +927,7 @@ button {
     border-left: 0;
     border-top: 1px solid var(--line);
     border-radius: 18px 18px 0 0;
-    box-shadow: 0 -12px 40px rgba(16, 24, 40, 0.18);
+    box-shadow: var(--shadow-up);
     padding: 22px 18px calc(28px + env(safe-area-inset-bottom));
   }
 

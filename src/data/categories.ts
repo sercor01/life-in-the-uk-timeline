@@ -1,16 +1,28 @@
 import type { Category, CategoryId } from "../types";
 
+/**
+ * Categories are declared here; their colours live in CSS as custom properties
+ * (`--c-<id>`, `--c-<id>-tint`, `--c-<id>-ink`) so light and dark themes can
+ * each provide WCAG-compliant values. See `index.css`.
+ */
 export const CATEGORIES: Category[] = [
-  { id: "prehistory", label: "Prehistory & early Britain", color: "#8a6d3b", tint: "#f3ecd8" },
-  { id: "monarchy", label: "Monarchy & politics", color: "#7c3aed", tint: "#ede9fe" },
-  { id: "war", label: "War & conflict", color: "#dc2626", tint: "#fee2e2" },
-  { id: "rights", label: "Rights & society", color: "#0891b2", tint: "#cffafe" },
-  { id: "religion", label: "Religion", color: "#16a34a", tint: "#dcfce7" },
-  { id: "science", label: "Science & invention", color: "#2563eb", tint: "#dbeafe" },
-  { id: "arts", label: "Arts & literature", color: "#db2777", tint: "#fce7f3" },
-  { id: "sport", label: "Sport", color: "#ea580c", tint: "#ffedd5" },
+  { id: "prehistory", label: "Prehistory & early Britain" },
+  { id: "monarchy", label: "Monarchy & politics" },
+  { id: "war", label: "War & conflict" },
+  { id: "rights", label: "Rights & society" },
+  { id: "religion", label: "Religion" },
+  { id: "science", label: "Science & invention" },
+  { id: "arts", label: "Arts & literature" },
+  { id: "sport", label: "Sport" },
 ];
 
 export const CATEGORY_BY_ID: Record<CategoryId, Category> = Object.fromEntries(
   CATEGORIES.map((c) => [c.id, c]),
 ) as Record<CategoryId, Category>;
+
+/** Marker / accent colour for a category. */
+export const categoryColor = (id: CategoryId): string => `var(--c-${id})`;
+/** Faint chip background for a category. */
+export const categoryTint = (id: CategoryId): string => `var(--c-${id}-tint)`;
+/** Accessible text colour on a category tint. */
+export const categoryInk = (id: CategoryId): string => `var(--c-${id}-ink)`;

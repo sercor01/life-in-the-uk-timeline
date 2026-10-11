@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
-import { CATEGORY_BY_ID } from "../data/categories";
+import { CATEGORY_BY_ID, categoryColor } from "../data/categories";
 import { layoutEvents, formatRange, formatYear } from "../lib/lanes";
 import {
   MIN_SPAN,
@@ -25,14 +25,15 @@ interface Props {
   onSelect: (event: TimelineEvent) => void;
 }
 
-const ERAS: { from: number; to: number; label: string; tint: string }[] = [  { from: -9000, to: 43, label: "Prehistory", tint: "#faf7f0" },
-  { from: 43, to: 410, label: "Roman Britain", tint: "#f7f1ea" },
-  { from: 410, to: 1066, label: "Anglo-Saxons", tint: "#f0f6f2" },
-  { from: 1066, to: 1485, label: "Medieval", tint: "#f4f1fb" },
-  { from: 1485, to: 1714, label: "Tudors & Stuarts", tint: "#f9f1f1" },
-  { from: 1714, to: 1837, label: "Georgian", tint: "#eef4f9" },
-  { from: 1837, to: 1901, label: "Victorian", tint: "#f0f6f8" },
-  { from: 1901, to: 2020, label: "Modern", tint: "#f4f5f7" },
+const ERAS: { from: number; to: number; label: string; tint: string }[] = [
+  { from: -9000, to: 43, label: "Prehistory", tint: "var(--era-prehistory)" },
+  { from: 43, to: 410, label: "Roman Britain", tint: "var(--era-roman)" },
+  { from: 410, to: 1066, label: "Anglo-Saxons", tint: "var(--era-anglo)" },
+  { from: 1066, to: 1485, label: "Medieval", tint: "var(--era-medieval)" },
+  { from: 1485, to: 1714, label: "Tudors & Stuarts", tint: "var(--era-tudor)" },
+  { from: 1714, to: 1837, label: "Georgian", tint: "var(--era-georgian)" },
+  { from: 1837, to: 1901, label: "Victorian", tint: "var(--era-victorian)" },
+  { from: 1901, to: 2020, label: "Modern", tint: "var(--era-modern)" },
 ];
 
 const LANE_SPACING = 32;
@@ -319,7 +320,7 @@ export function Timeline({ events, view, onViewChange, selectedId, onSelect }: P
                 width={Math.max(4, right - left)}
                 height={8}
                 rx={4}
-                fill={cat.color}
+                fill={categoryColor(cat.id)}
                 opacity={selectedId === event.id ? 0.85 : 0.5}
               />
             );
@@ -353,11 +354,11 @@ export function Timeline({ events, view, onViewChange, selectedId, onSelect }: P
                   y1={axisY}
                   x2={clampX}
                   y2={laneY + 4}
-                  stroke={cat.color}
+                  stroke={categoryColor(cat.id)}
                   strokeWidth={1.5}
                   opacity={0.55}
                 />
-                <circle cx={x} cy={axisY} r={selectedId === event.id ? 6 : 4.5} fill={cat.color} />
+                <circle cx={x} cy={axisY} r={selectedId === event.id ? 6 : 4.5} fill={categoryColor(cat.id)} />
               </g>
             );
           })}
@@ -372,13 +373,13 @@ export function Timeline({ events, view, onViewChange, selectedId, onSelect }: P
                 key={event.id}
                 type="button"
                 className={`marker${event.source === "handbook" ? " marker--handbook" : ""}`}
-                style={{ left: clampX, top: laneY, borderLeft: `3px solid ${cat.color}` }}
+                style={{ left: clampX, top: laneY, borderLeft: `3px solid ${categoryColor(cat.id)}` }}
                 aria-pressed={selectedId === event.id}
                 title={`${formatRange(event)} — ${event.title}`}
                 onPointerDown={(e) => e.stopPropagation()}
                 onClick={() => onSelect(event)}
               >
-                <span className="marker__dot" style={{ background: cat.color }} />
+                <span className="marker__dot" style={{ background: categoryColor(cat.id) }} />
                 <span className="marker__year">{formatRange(event)}</span>
                 <span className="marker__title">{event.title}</span>
                 {event.source === "handbook" && <span className="marker__badge">hb</span>}

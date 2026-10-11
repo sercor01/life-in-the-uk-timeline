@@ -50,6 +50,7 @@ src/
 tests/
   helpers.mjs            # Chrome detection + browser launch
   smoke.test.mjs         # node:test + puppeteer-core smoke suite
+  contrast.test.mjs      # WCAG AA contrast audit for both themes
 ```
 
 ## Data model
@@ -64,9 +65,10 @@ tests/
   events render with a dashed border and an `hb` badge.
 - `AnnualEvent` has `month`/`day` and an optional `movable` for feasts without a
   fixed date.
-- Categories live in one place (`categories.ts`); colours are referenced by id
-  everywhere else. Add a category there and it flows through the legend, search
-  and both views.
+- Categories live in one place (`categories.ts`); the colour *values* are CSS
+  custom properties (`--c-<id>`, `--c-<id>-tint`, `--c-<id>-ink`) defined per
+  theme in `index.css`. Add a category there and it flows through the legend,
+  search and both views.
 
 ## How the timeline works
 
@@ -86,6 +88,14 @@ tests/
 ## Conventions
 
 - Plain CSS in `src/index.css` using the variables in `:root`. No CSS framework.
+- No hardcoded colours in components: use CSS custom properties
+  (`var(--c-<id>)` for category graphics, `var(--c-<id>-tint)` / `var(--c-<id>-ink)`
+  for chips). This is what makes light/dark work.
+- **Theming**: the app follows the system setting via
+  `@media (prefers-color-scheme: dark)`, which redefines the tokens on `:root`.
+  Both palettes are audited for WCAG AA — keep any new colour pair compliant:
+  >= 4.5:1 for text, >= 3:1 for the axis, focus ring and category graphics.
+  Solve colours with the contrast helper rather than guessing (see Testing).
 - No state library; `App.tsx` holds state and passes props down.
 - Keep components presentational and the data/logic in `data/` and `lib/`.
 - Mobile is first-class: the detail panel becomes an overlay bottom sheet below
@@ -93,17 +103,28 @@ tests/
 
 ## Testing
 
-There is a committed smoke suite in `tests/`, run with `npm test`. It builds
-the app, starts `vite preview` on a fixed port (`4317`), and drives the system
-Chrome with `puppeteer-core` + Node's `node:test`. It covers rendering, zoom,
-pan, search, category filtering, list mode, the annual tab and a phone viewport
-(no horizontal overflow, bottom sheet opens).
+`npm test` builds the app and runs two headless-browser suites with
+`node:test` + `puppeteer-core`, against the production build served by
+`vite preview`:
 
-To extend it, add a `test(...)` using the `withPage(t, async (page) => { ... })`
-helper, which opens a fresh page (or skips cleanly if no browser is found).
+- `tests/smoke.test.mjs` (port `4317`) — rendering, zoom, pan, search, category
+  filtering, list mode, the annual tab and a phone viewport (no horizontal
+  overflow, bottom sheet opens).
+- `tests/contrast.test.mjs` (port `4318`) — reads the real CSS custom properties
+  in both the light and dark themes and asserts every text pair is >= 4.5:1 and
+  every graphic/axis/focus pair is >= 3:1 (WCAG AA).
 
-Because `puppeteer-core` ships no browser, the suite detects Chrome from common
-install paths. Override with `CHROME_PATH=/path/to/chrome`, or it falls back to
+To extend the smoke suite, add a `test(...)` using the
+`withPage(t, async (page) => { ... })` helper, which opens a fresh page (or
+skips cleanly if no browser is found). Each suite starts its own preview server,
+so give a new suite a distinct port.
+
+When picking colours, iterate with a small contrast function (the one in
+`tests/contrast.test.mjs`) until it passes, then paste the values into
+`index.css` for both themes.
+
+Because `puppeteer-core` ships no browser, the suites detect Chrome from common
+install paths. Override with `CHROME_PATH=/path/to/chrome`, or they fall back to
 Puppeteer's installed-Chrome channel. If none is found the tests skip rather
 than fail.
 

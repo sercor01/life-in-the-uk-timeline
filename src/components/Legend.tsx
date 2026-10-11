@@ -1,4 +1,4 @@
-import { CATEGORIES } from "../data/categories";
+import { CATEGORIES, categoryColor } from "../data/categories";
 import type { CategoryId } from "../types";
 
 interface Props {
@@ -20,7 +20,7 @@ export function Legend({ active, onToggle, onAll }: Props) {
           onClick={() => onToggle(c.id)}
           title={`Show or hide ${c.label}`}
         >
-          <span className="legend__swatch" style={{ background: c.color }} />
+          <span className="legend__swatch" style={{ background: categoryColor(c.id) }} />
           {c.label}
         </button>
       ))}

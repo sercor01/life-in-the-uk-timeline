@@ -1,7 +1,7 @@
 import { useMemo, useRef, useState } from "react";
 import { ANNUAL_EVENTS } from "../data/annual";
 import { EVENTS } from "../data/events";
-import { CATEGORY_BY_ID } from "../data/categories";
+import { categoryColor } from "../data/categories";
 import { formatRange } from "../lib/lanes";
 import type { Selection } from "../types";
 
@@ -41,7 +41,7 @@ function buildIndex(): Match[] {
       id: `e-${event.id}`,
       label: event.title,
       meta: formatRange(event),
-      color: CATEGORY_BY_ID[event.category].color,
+      color: categoryColor(event.category),
       selection: { kind: "event", event },
     });
   }
@@ -52,7 +52,7 @@ function buildIndex(): Match[] {
       meta: event.movable
         ? "Each year (movable)"
         : `${event.day} ${MONTHS[event.month - 1]} (every year)`,
-      color: CATEGORY_BY_ID[event.category].color,
+      color: categoryColor(event.category),
       selection: { kind: "annual", event },
     });
   }

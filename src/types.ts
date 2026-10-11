@@ -56,10 +56,6 @@ export type Selection =
 export interface Category {
   id: CategoryId;
   label: string;
-  /** Marker / accent colour. */
-  color: string;
-  /** Faint background tint used for chips and bands. */
-  tint: string;
 }
 
 export interface ExamQuestion {

@@ -1,4 +1,4 @@
-import { CATEGORY_BY_ID } from "../data/categories";
+import { CATEGORY_BY_ID, categoryInk } from "../data/categories";
 import { ANNUAL_EVENTS } from "../data/annual";
 import type { AnnualEvent, CategoryId, Selection } from "../types";
 
@@ -37,7 +37,7 @@ export function CalendarView({ active, onSelect, selectedId }: Props) {
         aria-pressed={selectedId === event.id}
         onClick={() => onSelect({ kind: "annual", event })}
       >
-        <span className="annual__day" style={{ color: cat.color }}>
+        <span className="annual__day" style={{ color: categoryInk(cat.id) }}>
           {event.movable ? "—" : `${event.day} ${MONTHS[event.month - 1].slice(0, 3)}`}
         </span>
         <span>

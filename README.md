@@ -10,6 +10,7 @@ npm install
 npm run dev      # start the dev server
 npm run build    # type-check and build to dist/
 npm run preview  # preview the production build
+npm test         # build, then run the headless smoke + WCAG contrast suites
 ```
 
 ## What it does
@@ -31,6 +32,10 @@ npm run preview  # preview the production build
   box that jumps straight to a date.
 - **Works on phones, tablets and desktops**: the detail panel becomes a bottom
   sheet, and a list view is available for small screens.
+- **Light and dark themes** that follow your system setting. Both palettes are
+  audited for WCAG AA contrast (4.5:1 for text, 3:1 for graphics).
+- **Accessible**: visible keyboard focus, no colour-only state, and reduced
+  motion is respected.
 
 ## Where the data lives
 

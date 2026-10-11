@@ -1,5 +1,5 @@
 import { useRef } from "react";
-import { CATEGORY_BY_ID } from "../data/categories";
+import { categoryColor } from "../data/categories";
 import type { TimelineEvent } from "../types";
 import { clampView, toNorm, type ViewWindow } from "../lib/scale";
 
@@ -62,8 +62,8 @@ export function Overview({ events, view, onChange }: Props) {
               className="overview__tick"
               style={{
                 left: `${toNorm(event.year) * 100}%`,
-                background: CATEGORY_BY_ID[event.category].color,
-                opacity: event.importance === 3 ? 0.95 : event.importance === 2 ? 0.6 : 0.35,
+                background: categoryColor(event.category),
+                opacity: event.importance === 3 ? 1 : event.importance === 2 ? 0.85 : 0.7,
                 top: event.importance === 3 ? 4 : 8,
                 height: event.importance === 3 ? 18 : 10,
               }}
