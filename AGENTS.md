@@ -16,7 +16,8 @@ npm run dev        # dev server (Vite)
 npm run build      # tsc --noEmit && vite build
 npm run preview    # serve the production build
 npm run typecheck  # tsc --noEmit
-npm test           # build, then run the headless browser smoke tests
+npm test           # build, then run the smoke + contrast + Lighthouse suites
+npm run lighthouse # just the Lighthouse suite (writes reports/ for inspection)
 ```
 
 Always run `npm run typecheck` (or `npm run build`) after changes. The repo is
@@ -27,6 +28,8 @@ variables fail the build.
 
 ```
 data/exams.json          # source quiz data (do not edit unless asked)
+public/robots.txt        # needed for the Lighthouse SEO audit to pass
+reports/                 # Lighthouse HTML/JSON output (gitignored)
 src/
   App.tsx                # top-level state: tab, view, selection, filters, query
   types.ts               # TimelineEvent, AnnualEvent, Category, Selection, ExamRef
@@ -51,6 +54,7 @@ tests/
   helpers.mjs            # Chrome detection + browser launch
   smoke.test.mjs         # node:test + puppeteer-core smoke suite
   contrast.test.mjs      # WCAG AA contrast audit for both themes
+  lighthouse.test.mjs    # Lighthouse budgets (a11y/perf/bp/seo) that gate CI
 ```
 
 ## Data model
@@ -103,16 +107,27 @@ tests/
 
 ## Testing
 
-`npm test` builds the app and runs two headless-browser suites with
-`node:test` + `puppeteer-core`, against the production build served by
-`vite preview`:
+`npm test` builds the app and runs three headless-browser suites with
+`node:test`, against the production build served by `vite preview`:
 
 - `tests/smoke.test.mjs` (port `4317`) — rendering, zoom, pan, search, category
   filtering, list mode, the annual tab and a phone viewport (no horizontal
-  overflow, bottom sheet opens).
+  overflow, bottom sheet opens). Uses `puppeteer-core`.
 - `tests/contrast.test.mjs` (port `4318`) — reads the real CSS custom properties
   in both the light and dark themes and asserts every text pair is >= 4.5:1 and
   every graphic/axis/focus pair is >= 3:1 (WCAG AA).
+- `tests/lighthouse.test.mjs` (port `4319`) — runs Lighthouse (mobile default
+  profile, then desktop) 3x per profile and asserts the *median* against budgets:
+  performance >= 0.9, accessibility = 1, best-practices and SEO >= 0.95,
+  LCP <= 2500ms, CLS <= 0.1, TBT <= 200ms. It uses `chrome-launcher` and writes
+  full HTML/JSON reports to `reports/` (gitignored). On failure the message names
+  the failing audits.
+
+The Lighthouse gates are deliberately strict. If one fails, fix the underlying
+issue rather than lowering the budget. Keep a single `<main>` landmark (a11y) and
+`public/robots.txt` (SEO) — both were required to reach 1.0. Because a Lighthouse
+run does not interact with the page, INP is proxied by TBT; interaction jank
+(pan/zoom) would need Lighthouse user-flow mode.
 
 To extend the smoke suite, add a `test(...)` using the
 `withPage(t, async (page) => { ... })` helper, which opens a fresh page (or
@@ -136,6 +151,8 @@ screenshot rather than assuming.
 - Chrome headless clamps the viewport to a minimum 500px wide; set a mobile
   viewport through the DevTools protocol (e.g. `page.setViewport`) instead of
   `--window-size` when testing phone layouts.
+- `vite preview` defaults to binding `localhost`, which can resolve to IPv6
+  (`::1`). The suites set `host: "127.0.0.1"` so the URL is reliable.
 - `data/exams.json` contains some internal contradictions (small-claims limit,
   NI Assembly size). The app reproduces the reference text; do not "fix" the
   data silently.

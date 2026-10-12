@@ -117,7 +117,7 @@ export default function App() {
         <SearchBar query={query} onQueryChange={setQuery} onPick={handlePick} />
       </header>
 
-      <div className="app__body">
+      <main className="app__body">
         {tab === "timeline" ? (
           mode === "timeline" ? (
             <Timeline
@@ -147,7 +147,7 @@ export default function App() {
         )}
 
         <DetailPanel selection={selected} onClose={() => setSelected(null)} />
-      </div>
+      </main>
 
       <Legend active={active} onToggle={toggleCategory} onAll={toggleAll} />
     </div>

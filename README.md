@@ -10,7 +10,8 @@ npm install
 npm run dev      # start the dev server
 npm run build    # type-check and build to dist/
 npm run preview  # preview the production build
-npm test         # build, then run the headless smoke + WCAG contrast suites
+npm test             # build, then run the smoke + contrast + Lighthouse suites
+npm run lighthouse   # just the Lighthouse budgets (writes reports/)
 ```
 
 ## What it does
@@ -45,10 +46,23 @@ npm test         # build, then run the headless smoke + WCAG contrast suites
   importance (3 = always shown, 1 = only when zoomed in), and links back to the
   quiz questions it came from.
 - `src/data/annual.ts` — the dates that repeat every year.
-- `src/data/categories.ts` — the categories and their colours.
+- `src/data/categories.ts` — the categories (colours live in `src/index.css` as
+  CSS variables so light and dark themes can each be accessible).
 
 To add an event, append to `src/data/events.ts`. To point at a question, use
 `examRefs: [{ set: 3, id: 19 }]`.
+
+## Quality checks
+
+`npm test` gates the build on three headless-browser suites:
+
+- **Smoke** (`tests/smoke.test.mjs`) — timeline renders, zoom, pan, search,
+  filters, list mode, the annual tab, and a phone viewport.
+- **Contrast** (`tests/contrast.test.mjs`) — asserts WCAG AA in both themes
+  (text ≥ 4.5:1, graphics ≥ 3:1).
+- **Lighthouse** (`tests/lighthouse.test.mjs`) — mobile and desktop budgets:
+  performance ≥ 0.9, accessibility = 1, best-practices and SEO ≥ 0.95, plus LCP,
+  CLS and TBT limits. Reports land in `reports/`.
 
 ## Data notes
 
