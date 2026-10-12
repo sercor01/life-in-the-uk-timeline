@@ -70,7 +70,7 @@ export function DetailPanel({ selection, onClose }: Props) {
         <span className="marker__dot" style={{ background: categoryColor(category.id) }} />
         {category.label}
         {selection.kind === "event" && (
-          <span style={{ opacity: 0.75 }}>
+          <span className="detail__eyebrow-tag">
             · {selection.event.source === "exam" ? "from exam" : "handbook"}
           </span>
         )}

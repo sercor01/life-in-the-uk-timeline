@@ -4,6 +4,7 @@ import { mkdirSync, writeFileSync } from "node:fs";
 import { preview } from "vite";
 import lighthouse from "lighthouse";
 import * as chromeLauncher from "chrome-launcher";
+import puppeteer from "puppeteer-core";
 import { findChrome } from "./helpers.mjs";
 
 const PORT = 4319;
@@ -27,11 +28,37 @@ const METRIC_BUDGETS = {
 };
 
 const CATEGORIES = ["performance", "accessibility", "best-practices", "seo"];
+const THEMES = ["light", "dark"];
 const REPEATS = 3;
+const BASE_FLAGS = ["--headless=new", "--no-sandbox", "--disable-gpu"];
 
 let server;
-let chrome;
 let chromePath;
+/** @type {Record<string, import("chrome-launcher").LaunchedChrome | undefined>} */
+const chromes = {};
+
+/**
+ * Launch Chrome and force the requested colour scheme. The Blink flag's value
+ * has been observed inverted in some Chrome builds, so we verify the effective
+ * scheme via matchMedia and pick the value that actually works.
+ */
+async function launchForScheme(scheme) {
+  for (const value of ["0", "1"]) {
+    const chrome = await chromeLauncher.launch({
+      chromePath,
+      chromeFlags: [...BASE_FLAGS, `--blink-settings=preferredColorScheme=${value}`],
+    });
+    const browser = await puppeteer.connect({ browserURL: `http://127.0.0.1:${chrome.port}` });
+    const page = await browser.newPage();
+    const dark = await page.evaluate(() =>
+      matchMedia("(prefers-color-scheme: dark)").matches,
+    );
+    await browser.disconnect();
+    if (dark === (scheme === "dark")) return chrome;
+    await chrome.kill();
+  }
+  throw new Error(`Could not force the "${scheme}" colour scheme in headless Chrome`);
+}
 
 before(async () => {
   chromePath = findChrome();
@@ -40,29 +67,26 @@ before(async () => {
     preview: { port: PORT, strictPort: true, host: "127.0.0.1" },
     logLevel: "silent",
   });
-  chrome = await chromeLauncher.launch({
-    chromePath,
-    chromeFlags: ["--headless=new", "--no-sandbox", "--disable-gpu"],
-  });
+  for (const theme of THEMES) chromes[theme] = await launchForScheme(theme);
   mkdirSync(REPORTS, { recursive: true });
 });
 
 after(async () => {
-  await chrome?.kill();
+  for (const chrome of Object.values(chromes)) await chrome?.kill();
   await server?.close();
 });
 
-async function audit(label, options, index) {
+async function audit(theme, label, options, index) {
   const { lhr, report } = await lighthouse(APP_URL, {
-    port: chrome.port,
+    port: chromes[theme].port,
     output: ["html", "json"],
     logLevel: "error",
     onlyCategories: CATEGORIES,
     ...options,
   });
   const [html, json] = report;
-  writeFileSync(`${REPORTS}lighthouse-${label}-${index}.html`, html);
-  writeFileSync(`${REPORTS}lighthouse-${label}-${index}.json`, json);
+  writeFileSync(`${REPORTS}lighthouse-${theme}-${label}-${index}.html`, html);
+  writeFileSync(`${REPORTS}lighthouse-${theme}-${label}-${index}.json`, json);
   return lhr;
 }
 
@@ -93,10 +117,10 @@ function failingAudits(lhr, category) {
     .map((a) => `${a.id} (${a.title})`);
 }
 
-async function medianResult(label, options) {
+async function medianResult(theme, label, options) {
   const runs = [];
   for (let i = 1; i <= REPEATS; i++) {
-    runs.push(await audit(label, options, i));
+    runs.push(await audit(theme, label, options, i));
   }
   const summaries = runs.map(summarise);
   const scores = Object.fromEntries(
@@ -108,43 +132,50 @@ async function medianResult(label, options) {
       median(summaries.map((s) => s.metrics[k])),
     ]),
   );
-  // Keep the best-scoring run for the failing-audit detail.
   const representative = runs
-    .map((lhr) => ({ lhr, sum: Object.values(summarise(lhr).scores).reduce((a, b) => a + b, 0) }))
+    .map((lhr) => ({
+      lhr,
+      sum: Object.values(summarise(lhr).scores).reduce((a, b) => a + b, 0),
+    }))
     .sort((a, b) => a.sum - b.sum)[0].lhr;
   return { scores, metrics, representative };
 }
 
-test("Lighthouse: mobile passes all budgets", async (t) => {
-  if (!chrome) return t.skip(SKIP_CHROME);
-  const { scores, metrics, representative } = await medianResult("mobile", {});
-  t.diagnostic(
-    `mobile median: ${JSON.stringify(scores)} LCP=${Math.round(metrics["largest-contentful-paint"])}ms CLS=${metrics["cumulative-layout-shift"].toFixed(3)} TBT=${Math.round(metrics["total-blocking-time"])}ms`,
-  );
-
+function assertBudgets(scores, metrics, representative, label) {
   for (const [key, min] of Object.entries(BUDGETS)) {
     if (scores[key] < min) {
       const detail = failingAudits(representative, key).join("\n    ");
       assert.fail(
-        `Lighthouse ${key} score ${scores[key]} < ${min}\n  failing audits:\n    ${detail || "(none listed)"}`,
+        `${label} ${key} score ${scores[key]} < ${min}\n  failing audits:\n    ${detail || "(none listed)"}`,
       );
     }
   }
   for (const [key, max] of Object.entries(METRIC_BUDGETS)) {
     assert.ok(
       metrics[key] <= max,
-      `Lighthouse ${key} ${Math.round(metrics[key])} exceeds ${max}`,
+      `${label} ${key} ${Math.round(metrics[key])} exceeds ${max}`,
     );
   }
-});
+}
 
-test("Lighthouse: desktop passes all budgets", async (t) => {
-  if (!chrome) return t.skip(SKIP_CHROME);
-  const { scores, metrics } = await medianResult("desktop", { preset: "desktop" });
-  t.diagnostic(
-    `desktop median: ${JSON.stringify(scores)} LCP=${Math.round(metrics["largest-contentful-paint"])}ms CLS=${metrics["cumulative-layout-shift"].toFixed(3)} TBT=${Math.round(metrics["total-blocking-time"])}ms`,
-  );
-  for (const [key, min] of Object.entries(BUDGETS)) {
-    assert.ok(scores[key] >= min, `desktop ${key} score ${scores[key]} < ${min}`);
-  }
-});
+for (const theme of THEMES) {
+  test(`Lighthouse: ${theme} theme, mobile passes all budgets`, async (t) => {
+    if (!chromes[theme]) return t.skip(SKIP_CHROME);
+    const { scores, metrics, representative } = await medianResult(theme, "mobile", {});
+    t.diagnostic(
+      `${theme} mobile median: ${JSON.stringify(scores)} LCP=${Math.round(metrics["largest-contentful-paint"])}ms CLS=${metrics["cumulative-layout-shift"].toFixed(3)} TBT=${Math.round(metrics["total-blocking-time"])}ms`,
+    );
+    assertBudgets(scores, metrics, representative, `${theme} mobile`);
+  });
+
+  test(`Lighthouse: ${theme} theme, desktop passes all budgets`, async (t) => {
+    if (!chromes[theme]) return t.skip(SKIP_CHROME);
+    const { scores, metrics, representative } = await medianResult(theme, "desktop", {
+      preset: "desktop",
+    });
+    t.diagnostic(
+      `${theme} desktop median: ${JSON.stringify(scores)} LCP=${Math.round(metrics["largest-contentful-paint"])}ms CLS=${metrics["cumulative-layout-shift"].toFixed(3)} TBT=${Math.round(metrics["total-blocking-time"])}ms`,
+    );
+    assertBudgets(scores, metrics, representative, `${theme} desktop`);
+  });
+}

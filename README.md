@@ -54,15 +54,18 @@ To add an event, append to `src/data/events.ts`. To point at a question, use
 
 ## Quality checks
 
-`npm test` gates the build on three headless-browser suites:
+`npm test` gates the build on four headless-browser suites:
 
 - **Smoke** (`tests/smoke.test.mjs`) — timeline renders, zoom, pan, search,
   filters, list mode, the annual tab, and a phone viewport.
-- **Contrast** (`tests/contrast.test.mjs`) — asserts WCAG AA in both themes
-  (text ≥ 4.5:1, graphics ≥ 3:1).
-- **Lighthouse** (`tests/lighthouse.test.mjs`) — mobile and desktop budgets:
-  performance ≥ 0.9, accessibility = 1, best-practices and SEO ≥ 0.95, plus LCP,
-  CLS and TBT limits. Reports land in `reports/`.
+- **Contrast** (`tests/contrast.test.mjs`) — the design tokens meet WCAG AA in
+  both themes (text ≥ 4.5:1, graphics ≥ 3:1), including text over the era bands.
+- **axe** (`tests/axe.test.mjs`) — axe-core audits every rendered screen/state in
+  both themes and at desktop and phone sizes for WCAG A/AA violations.
+- **Lighthouse** (`tests/lighthouse.test.mjs`) — mobile and desktop budgets,
+  **in both light and dark themes**: performance ≥ 0.9, accessibility = 1,
+  best-practices and SEO ≥ 0.95, plus LCP, CLS and TBT limits. Reports land in
+  `reports/`.
 
 ## Data notes
 

@@ -596,6 +596,14 @@ button {
   margin-bottom: 12px;
 }
 
+/*
+ * Distinguish the source tag with weight rather than opacity: dimming text
+ * drops it below 4.5:1 against the tint.
+ */
+.detail__eyebrow-tag {
+  font-weight: 500;
+}
+
 .detail h2 {
   font-size: 22px;
   line-height: 1.2;

@@ -16,7 +16,7 @@ npm run dev        # dev server (Vite)
 npm run build      # tsc --noEmit && vite build
 npm run preview    # serve the production build
 npm run typecheck  # tsc --noEmit
-npm test           # build, then run the smoke + contrast + Lighthouse suites
+npm test           # build, then run the smoke + contrast + axe + Lighthouse suites
 npm run lighthouse # just the Lighthouse suite (writes reports/ for inspection)
 ```
 
@@ -53,7 +53,8 @@ src/
 tests/
   helpers.mjs            # Chrome detection + browser launch
   smoke.test.mjs         # node:test + puppeteer-core smoke suite
-  contrast.test.mjs      # WCAG AA contrast audit for both themes
+  contrast.test.mjs      # WCAG AA contrast audit of the design tokens
+  axe.test.mjs           # axe-core WCAG A/AA audit of rendered screens
   lighthouse.test.mjs    # Lighthouse budgets (a11y/perf/bp/seo) that gate CI
 ```
 
@@ -115,19 +116,33 @@ tests/
   overflow, bottom sheet opens). Uses `puppeteer-core`.
 - `tests/contrast.test.mjs` (port `4318`) — reads the real CSS custom properties
   in both the light and dark themes and asserts every text pair is >= 4.5:1 and
-  every graphic/axis/focus pair is >= 3:1 (WCAG AA).
-- `tests/lighthouse.test.mjs` (port `4319`) — runs Lighthouse (mobile default
-  profile, then desktop) 3x per profile and asserts the *median* against budgets:
-  performance >= 0.9, accessibility = 1, best-practices and SEO >= 0.95,
-  LCP <= 2500ms, CLS <= 0.1, TBT <= 200ms. It uses `chrome-launcher` and writes
+  every graphic/axis/focus pair is >= 3:1 (WCAG AA). Checks the *tokens*;
+  includes text over the era bands, which axe cannot measure.
+- `tests/axe.test.mjs` (port `4320`) — runs axe-core against 7 rendered states
+  (timeline, list, annual, each with a detail panel open, and a hidden category)
+  across both themes and desktop/phone, for WCAG 2.0/2.1/2.2 A + AA. Checks the
+  *rendered screens*; catches things the token test cannot, e.g. text dimmed with
+  opacity. Contrast results axe leaves undecided (gradient backgrounds) are only
+  logged, since `contrast.test.mjs` covers them.
+- `tests/lighthouse.test.mjs` (port `4319`) — runs Lighthouse on the production
+  build for mobile and desktop, **in both light and dark themes** (the colour
+  scheme is forced via Blink and verified with `matchMedia`), 3 runs each, and
+  asserts the median against budgets: performance >= 0.9, accessibility = 1,
+  best-practices and SEO >= 0.95, LCP <= 2500ms, CLS <= 0.1, TBT <= 200ms. Writes
   full HTML/JSON reports to `reports/` (gitignored). On failure the message names
   the failing audits.
+
+The contrast and axe suites overlap deliberately: the token test guarantees the
+palette is sound, axe guarantees the rendered screens are. Keep both.
 
 The Lighthouse gates are deliberately strict. If one fails, fix the underlying
 issue rather than lowering the budget. Keep a single `<main>` landmark (a11y) and
 `public/robots.txt` (SEO) — both were required to reach 1.0. Because a Lighthouse
 run does not interact with the page, INP is proxied by TBT; interaction jank
 (pan/zoom) would need Lighthouse user-flow mode.
+
+Do not signal state by dimming text with `opacity` — it lowers contrast below AA
+and only the axe suite catches it. Use a different weight or a solid colour.
 
 To extend the smoke suite, add a `test(...)` using the
 `withPage(t, async (page) => { ... })` helper, which opens a fresh page (or
