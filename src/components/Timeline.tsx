@@ -295,11 +295,22 @@ export function Timeline({ events, view, onViewChange, selectedId, onSelect }: P
           {ticks.map((year) => {
             const x = normToX(toNorm(year), view, width);
             if (x < -20 || x > width + 20) return null;
+            // Keep edge labels inside the clip: anchor the first/last ones to
+            // the edge instead of centring them, so they are never cut in half.
+            const label = formatYear(year);
+            const half = label.length * 3.6 + 2;
+            const anchor = x < half ? "start" : x > width - half ? "end" : "middle";
+            const tx =
+              anchor === "start"
+                ? Math.max(3, x)
+                : anchor === "end"
+                  ? Math.min(width - 3, x)
+                  : x;
             return (
               <g key={year}>
                 <line x1={x} y1={axisY - 5} x2={x} y2={axisY + 5} stroke="var(--axis)" />
-                <text className="tick-label" x={x} y={axisY + 22} textAnchor="middle">
-                  {formatYear(year)}
+                <text className="tick-label" x={tx} y={axisY + 22} textAnchor={anchor}>
+                  {label}
                 </text>
               </g>
             );

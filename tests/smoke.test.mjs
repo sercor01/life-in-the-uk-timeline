@@ -88,6 +88,25 @@ test("renders the timeline with events and an overview", (t) =>
     assert.equal(stats.legends, 8, "expected 8 category filters");
   }));
 
+test("axis tick labels are fully visible at the edges", (t) =>
+  withPage(t, async (page) => {
+    const clipped = await page.evaluate(() => {
+      const tl = document.querySelector(".timeline").getBoundingClientRect();
+      return [...document.querySelectorAll(".tick-label")]
+        .map((el) => {
+          const r = el.getBoundingClientRect();
+          return {
+            text: el.textContent,
+            left: +(r.left - tl.left).toFixed(1),
+            right: +(r.right - tl.left).toFixed(1),
+            width: Math.round(tl.width),
+          };
+        })
+        .filter((t) => t.left < -0.5 || t.right > t.width + 0.5);
+    });
+    assert.equal(clipped.length, 0, `clipped tick labels: ${JSON.stringify(clipped)}`);
+  }));
+
 test("zooming in narrows the view window", (t) =>
   withPage(t, async (page) => {
     const before = await overviewWindow(page);
