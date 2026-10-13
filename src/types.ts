@@ -6,7 +6,8 @@ export type CategoryId =
   | "religion"
   | "science"
   | "arts"
-  | "sport";
+  | "sport"
+  | "population";
 
 /** A dated happening placed on the historical timeline. */
 export interface TimelineEvent {

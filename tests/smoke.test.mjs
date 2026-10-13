@@ -85,7 +85,7 @@ test("renders the timeline with events and an overview", (t) =>
     assert.match(stats.brand, /Life in the UK/);
     assert.ok(stats.markers > 0, "expected visible event markers");
     assert.ok(stats.ticks > 40, "expected an overview tick per event");
-    assert.equal(stats.legends, 8, "expected 8 category filters");
+    assert.equal(stats.legends, 9, "expected 9 category filters");
   }));
 
 test("axis tick labels are fully visible at the edges", (t) =>
@@ -203,6 +203,79 @@ test("annual tab lists the year and opens a detail sheet", (t) =>
     assert.match(detail.date, /every year|Movable/);
     assert.ok(detail.hasRef, "expected an exam reference");
   }));
+
+test("population figures search, open and link to the tab", (t) =>
+  withPage(t, async (page) => {
+    await page.type(".search input", "67 million");
+    await wait(250);
+    const results = await page.$$eval(".search__item b", (els) =>
+      els.map((e) => e.textContent),
+    );
+    assert.deepEqual(results, ["Population: just over 67 million"]);
+
+    // Picking a result focuses it on the timeline and opens the detail panel.
+    await page.click(".search__item");
+    await wait(300);
+    const panel = await page.evaluate(() => ({
+      title: document.querySelector(".detail h2")?.textContent ?? "",
+      date: document.querySelector(".detail__date")?.textContent ?? "",
+      cta: document.querySelector(".detail__cta")?.textContent ?? "",
+    }));
+    assert.match(panel.title, /Population/);
+    assert.equal(panel.date, "2021");
+    assert.match(panel.cta, /population chart/i);
+
+    const onTimeline = await page.$$eval(".marker", (els) =>
+      els.some((e) => e.textContent.includes("67 million")),
+    );
+    assert.ok(onTimeline, "expected the focused figure on the timeline");
+
+    await page.click(".detail__cta");
+    await wait(250);
+    const activeTab = await page.$eval(
+      '.tabs button[aria-selected="true"]',
+      (el) => el.textContent,
+    );
+    assert.equal(activeTab, "Population");
+  }));
+
+test("population tab shows the handbook population table", (t) =>
+  withPage(t, async (page) => {
+    await clickByText(page, ".tabs button", "Population");
+    await wait(200);
+    const values = await page.$$eval(".milestone__value", (els) =>
+      els.map((e) => e.textContent),
+    );
+    assert.equal(values.length, 11, "expected every handbook year");
+    assert.equal(values[0], "Just over 4 million");
+    assert.equal(values.at(-1), "Just over 67 million");
+    const nations = await page.$$eval(".nations__item", (els) => els.length);
+    assert.equal(nations, 4, "expected the four nations");
+    const chartW = await page.$eval(".pop-chart svg", (el) =>
+      el.getBoundingClientRect().width,
+    );
+    assert.ok(chartW > 0, "expected the chart to render");
+  }));
+
+test("population tab fits a phone without overflow", (t) =>
+  withPage(
+    t,
+    async (page) => {
+      await clickByText(page, ".tabs button", "Population");
+      await wait(200);
+      const layout = await page.evaluate(() => ({
+        scrollW: document.documentElement.scrollWidth,
+        clientW: document.documentElement.clientWidth,
+        milestones: document.querySelectorAll(".milestone").length,
+        chart: !!document.querySelector(".pop-chart svg"),
+      }));
+      assert.ok(layout.scrollW <= layout.clientW + 1, "no horizontal overflow");
+      assert.equal(layout.milestones, 11);
+      assert.ok(layout.chart, "expected the chart on a phone");
+    },
+    390,
+    844,
+  ));
 
 test("phone layout does not overflow and the sheet opens", (t) =>
   withPage(

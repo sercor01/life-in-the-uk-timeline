@@ -6,11 +6,12 @@ import { CalendarView } from "./components/CalendarView";
 import { DetailPanel } from "./components/DetailPanel";
 import { EventListView } from "./components/EventListView";
 import { Legend } from "./components/Legend";
+import { PopulationView } from "./components/PopulationView";
 import { SearchBar } from "./components/SearchBar";
 import { Timeline } from "./components/Timeline";
 import type { CategoryId, Selection, TimelineEvent } from "./types";
 
-type Tab = "timeline" | "calendar";
+type Tab = "timeline" | "calendar" | "population";
 type TimelineMode = "timeline" | "list";
 
 const FOCUS_SPAN = Math.max(MIN_SPAN * 5, 0.05);
@@ -96,6 +97,13 @@ export default function App() {
           >
             Annual dates
           </button>
+          <button
+            role="tab"
+            aria-selected={tab === "population"}
+            onClick={() => setTab("population")}
+          >
+            Population
+          </button>
         </div>
 
         {tab === "timeline" && (
@@ -118,8 +126,8 @@ export default function App() {
       </header>
 
       <main className="app__body">
-        {tab === "timeline" ? (
-          mode === "timeline" ? (
+        {tab === "timeline" &&
+          (mode === "timeline" ? (
             <Timeline
               events={filteredEvents}
               view={view}
@@ -135,8 +143,9 @@ export default function App() {
                 onSelect={(event) => setSelected({ kind: "event", event })}
               />
             </div>
-          )
-        ) : (
+          ))}
+
+        {tab === "calendar" && (
           <div className="stage">
             <CalendarView
               active={active}
@@ -146,7 +155,20 @@ export default function App() {
           </div>
         )}
 
-        <DetailPanel selection={selected} onClose={() => setSelected(null)} />
+        {tab === "population" && (
+          <div className="stage">
+            <PopulationView />
+          </div>
+        )}
+
+        <DetailPanel
+          selection={selected}
+          onClose={() => setSelected(null)}
+          onOpenPopulation={() => {
+            setSelected(null);
+            setTab("population");
+          }}
+        />
       </main>
 
       <Legend active={active} onToggle={toggleCategory} onAll={toggleAll} />

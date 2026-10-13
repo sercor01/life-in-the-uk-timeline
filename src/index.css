@@ -63,6 +63,18 @@
   --c-sport: #ea580c;
   --c-sport-tint: #ffedd5;
   --c-sport-ink: #c2410c;
+  --c-population: #4f46e5;
+  --c-population-tint: #e0e7ff;
+  --c-population-ink: #3730a3;
+
+  /* population tab: chart line/fill and the four-nation bar */
+  --pop-line: #4f46e5;
+  --pop-fill-top: #e6e9fd;
+  --pop-fill-bottom: #f5f6fe;
+  --pop-england: #4f46e5;
+  --pop-scotland: #0e7490;
+  --pop-wales: #b91c1c;
+  --pop-ni: #15803d;
 
   --radius: 14px;
   --header-h: 60px;
@@ -133,6 +145,17 @@
     --c-sport: #fb923c;
     --c-sport-tint: #3a1c0c;
     --c-sport-ink: #fdba74;
+    --c-population: #a5b4fc;
+    --c-population-tint: #232b4a;
+    --c-population-ink: #c7d2fe;
+
+    --pop-line: #a5b4fc;
+    --pop-fill-top: #23306b;
+    --pop-fill-bottom: #141b2d;
+    --pop-england: #a5b4fc;
+    --pop-scotland: #5fd4e6;
+    --pop-wales: #fca5a5;
+    --pop-ni: #6ee7a0;
   }
 }
 
@@ -668,6 +691,23 @@ button {
   margin-top: 4px;
 }
 
+.detail__cta {
+  width: 100%;
+  text-align: left;
+  border: 1px solid var(--line);
+  background: var(--bg);
+  border-radius: 10px;
+  padding: 11px 13px;
+  font-size: 13.5px;
+  font-weight: 600;
+  color: var(--accent);
+}
+
+.detail__cta:hover {
+  border-color: var(--accent);
+  background: var(--accent-soft);
+}
+
 .chip {
   font-size: 11.5px;
   font-weight: 600;
@@ -686,9 +726,27 @@ button {
   padding: 8px 16px;
   background: var(--panel);
   border-top: 1px solid var(--line);
+}
+
+/* The chips scroll horizontally; the "Hide all" toggle stays put to the right
+   so it is always reachable however many categories there are. */
+.legend__chips {
+  flex: 1 1 auto;
+  min-width: 0;
+  display: flex;
+  align-items: center;
+  gap: 8px;
   overflow-x: auto;
-  flex-wrap: nowrap;
   scrollbar-width: thin;
+}
+
+/* With room to spare, wrap the chips so every category is visible at once
+   instead of hiding some behind a scrollbar. */
+@media (min-width: 700px) {
+  .legend__chips {
+    flex-wrap: wrap;
+    overflow-x: visible;
+  }
 }
 
 .legend__item {
@@ -899,6 +957,225 @@ button {
   font-size: 12px;
   color: var(--muted);
   margin-top: 1px;
+}
+
+/* -------------------------------------------------------------- population */
+.population {
+  flex: 1;
+  overflow: auto;
+  padding: 20px 20px 90px;
+}
+
+.population__intro {
+  max-width: 720px;
+  color: var(--muted);
+  font-size: 14px;
+  line-height: 1.6;
+  margin: 0 0 20px;
+}
+
+.population__sub {
+  max-width: 720px;
+  color: var(--muted);
+  font-size: 13.5px;
+  line-height: 1.55;
+  margin: 0 0 12px;
+}
+
+.pop-heading {
+  font-size: 13px;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  color: var(--muted);
+  margin: 30px 0 12px;
+}
+
+.pop-card {
+  background: var(--panel);
+  border: 1px solid var(--line);
+  border-radius: var(--radius);
+  padding: 16px 16px 14px;
+}
+
+.pop-card__title {
+  font-size: 15px;
+  font-weight: 700;
+  margin: 0 0 6px;
+}
+
+.pop-card__caption {
+  color: var(--muted);
+  font-size: 13px;
+  margin: 4px 2px 0;
+}
+
+.pop-chart {
+  width: 100%;
+  min-height: 190px;
+}
+
+.pop-chart__ytick,
+.pop-chart__xtick {
+  fill: var(--muted);
+  font-size: 12px;
+  font-variant-numeric: tabular-nums;
+}
+
+.pop-chart__anchor {
+  fill: var(--ink);
+  font-size: 12.5px;
+  font-weight: 700;
+  font-variant-numeric: tabular-nums;
+}
+
+.milestones {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(210px, 1fr));
+  gap: 12px;
+}
+
+.milestone {
+  background: var(--panel);
+  border: 1px solid var(--line);
+  border-radius: var(--radius);
+  padding: 12px 14px 14px;
+}
+
+.milestone__year {
+  margin: 0;
+  font-size: 12.5px;
+  font-weight: 700;
+  color: var(--muted);
+  font-variant-numeric: tabular-nums;
+}
+
+.milestone__value {
+  margin: 2px 0 10px;
+  font-size: 17px;
+  font-weight: 700;
+  letter-spacing: -0.01em;
+  line-height: 1.25;
+}
+
+.milestone__track {
+  height: 8px;
+  border-radius: 5px;
+  background: var(--bg);
+  overflow: hidden;
+}
+
+.milestone__bar {
+  display: block;
+  height: 100%;
+  border-radius: 5px;
+  background: var(--pop-line);
+}
+
+.milestone__note {
+  margin: 9px 0 0;
+  font-size: 12.5px;
+  color: var(--muted);
+  line-height: 1.4;
+}
+
+.growth {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(240px, 1fr));
+  gap: 12px;
+}
+
+.growth__item {
+  background: var(--bg);
+  border: 1px solid var(--line);
+  border-radius: var(--radius);
+  padding: 12px 14px;
+}
+
+.growth__span {
+  display: block;
+  font-size: 12.5px;
+  font-weight: 700;
+  color: var(--accent);
+  font-variant-numeric: tabular-nums;
+}
+
+.growth__text {
+  display: block;
+  margin-top: 3px;
+  font-size: 13.5px;
+}
+
+.nations__bar {
+  display: flex;
+  width: 100%;
+  height: 26px;
+  border-radius: 8px;
+  overflow: hidden;
+  border: 1px solid var(--line);
+}
+
+.nations__seg {
+  height: 100%;
+}
+
+.nations__seg--england,
+.nations__dot--england {
+  background: var(--pop-england);
+}
+
+.nations__seg--scotland,
+.nations__dot--scotland {
+  background: var(--pop-scotland);
+}
+
+.nations__seg--wales,
+.nations__dot--wales {
+  background: var(--pop-wales);
+}
+
+.nations__seg--ni,
+.nations__dot--ni {
+  background: var(--pop-ni);
+}
+
+.nations {
+  list-style: none;
+  margin: 14px 0 0;
+  padding: 0;
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(180px, 1fr));
+  gap: 8px 18px;
+}
+
+.nations__item {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 13.5px;
+}
+
+.nations__dot {
+  width: 12px;
+  height: 12px;
+  border-radius: 3px;
+  flex: none;
+}
+
+.nations__name {
+  font-weight: 600;
+}
+
+.nations__share {
+  color: var(--muted);
+  margin-left: auto;
+  font-variant-numeric: tabular-nums;
 }
 
 /* ----------------------------------------------------------------- mobile */

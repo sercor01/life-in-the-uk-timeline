@@ -14,6 +14,7 @@ export const CATEGORIES: Category[] = [
   { id: "science", label: "Science & invention" },
   { id: "arts", label: "Arts & literature" },
   { id: "sport", label: "Sport" },
+  { id: "population", label: "Population" },
 ];
 
 export const CATEGORY_BY_ID: Record<CategoryId, Category> = Object.fromEntries(

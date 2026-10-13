@@ -16,6 +16,7 @@ const CATEGORY_IDS = [
   "science",
   "arts",
   "sport",
+  "population",
 ];
 const ERAS = [
   "prehistory",
@@ -85,6 +86,7 @@ async function readTokens(page, scheme) {
       "science",
       "arts",
       "sport",
+      "population",
     ]) {
       out[`c-${id}`] = style.getPropertyValue(`--c-${id}`).trim();
       out[`c-${id}-tint`] = style.getPropertyValue(`--c-${id}-tint`).trim();
@@ -101,6 +103,9 @@ async function readTokens(page, scheme) {
       "modern",
     ]) {
       out[`era-${era}`] = style.getPropertyValue(`--era-${era}`).trim();
+    }
+    for (const n of ["pop-line", "pop-england", "pop-scotland", "pop-wales", "pop-ni"]) {
+      out[n] = style.getPropertyValue(`--${n}`).trim();
     }
     return out;
   });
@@ -139,6 +144,12 @@ function auditTheme(scheme, tokens) {
     check(`category ${id} graphic on bg`, tokens[`c-${id}`], tokens.bg, 3);
     check(`category ${id} ink on tint`, tokens[`c-${id}-ink`], tokens[`c-${id}-tint`], 4.5);
     check(`category ${id} ink on panel`, tokens[`c-${id}-ink`], tokens.panel, 4.5);
+  }
+
+  // Population tab: chart line and the four-nation bar are graphics.
+  for (const n of ["pop-line", "pop-england", "pop-scotland", "pop-wales", "pop-ni"]) {
+    check(`${n} on panel`, tokens[n], tokens.panel, 3);
+    check(`${n} on bg`, tokens[n], tokens.bg, 3);
   }
 
   assert.equal(

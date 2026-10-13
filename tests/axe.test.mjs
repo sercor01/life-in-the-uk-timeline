@@ -65,6 +65,10 @@ const STATES = [
     },
   },
   {
+    name: "population",
+    go: (page) => click(page, ".tabs button", "Population"),
+  },
+  {
     name: "a category hidden",
     go: (page) => click(page, ".legend__item", "Sport"),
   },

@@ -6,6 +6,8 @@ import type { Selection } from "../types";
 interface Props {
   selection: Selection | null;
   onClose: () => void;
+  /** Opens the Population tab; only used by population events. */
+  onOpenPopulation?: () => void;
 }
 
 const MONTHS = [
@@ -30,7 +32,7 @@ function ordinal(n: number): string {
   return `${n}th`;
 }
 
-export function DetailPanel({ selection, onClose }: Props) {
+export function DetailPanel({ selection, onClose, onOpenPopulation }: Props) {
   if (!selection) {
     return (
       <aside className="detail detail--empty" aria-label="Event details">
@@ -79,6 +81,15 @@ export function DetailPanel({ selection, onClose }: Props) {
       <h2>{event.title}</h2>
       <div className="detail__date">{dateLine}</div>
       <p className="detail__summary">{event.summary}</p>
+
+      {event.category === "population" && onOpenPopulation && (
+        <div className="detail__section">
+          <h3>See it in context</h3>
+          <button type="button" className="detail__cta" onClick={onOpenPopulation}>
+            Open the population chart →
+          </button>
+        </div>
+      )}
 
       {refs.length > 0 && (
         <div className="detail__section">

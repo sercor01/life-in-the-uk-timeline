@@ -1,4 +1,5 @@
 import type { TimelineEvent } from "../types";
+import { POPULATION } from "./population";
 
 /**
  * Curated dated events.
@@ -9,7 +10,7 @@ import type { TimelineEvent } from "../types";
  *
  * importance: 3 = always visible, 2 = medium zoom, 1 = only when zoomed in.
  */
-export const EVENTS: TimelineEvent[] = [
+const CURATED_EVENTS: TimelineEvent[] = [
   // ---------------------------------------------------------------- Prehistory
   {
     id: "stone-age",
@@ -1248,3 +1249,24 @@ export const EVENTS: TimelineEvent[] = [
     examRefs: [{ set: 16, id: 18 }],
   },
 ];
+
+/**
+ * The handbook's population table also appears on the timeline, so each figure
+ * can be read in context with the events around it. These are generated from
+ * `POPULATION` so the numbers live in one place. Every entry is `handbook`
+ * sourced and carries no exam reference, because the question sets ask nothing
+ * about population figures.
+ */
+const POPULATION_EVENTS: TimelineEvent[] = POPULATION.map((point) => ({
+  id: `population-${point.year}`,
+  year: point.year,
+  title: `Population: ${point.label.toLowerCase()}`,
+  summary:
+    `The population of the UK was ${point.label.toLowerCase()}.` +
+    (point.note ? ` ${point.note}` : ""),
+  category: "population",
+  importance: point.importance,
+  source: "handbook",
+}));
+
+export const EVENTS: TimelineEvent[] = [...CURATED_EVENTS, ...POPULATION_EVENTS];
