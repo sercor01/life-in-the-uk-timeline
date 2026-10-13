@@ -34,7 +34,7 @@ export function Overview({ events, view, onChange }: Props) {
   function onPointerMove(e: React.PointerEvent) {
     if (!drag.current) return;
     const width = trackWidth();
-    const dn = ((e.clientX - drag.current.startX) / width) * 1; // full axis = span 1
+    const dn = (e.clientX - drag.current.startX) / width; // full axis = span 1
     onChange(clampView({ n0: drag.current.n0 + dn, n1: drag.current.n0 + dn + drag.current.span }));
   }
 

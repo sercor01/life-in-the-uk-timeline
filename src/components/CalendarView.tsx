@@ -1,5 +1,6 @@
-import { CATEGORY_BY_ID, categoryInk } from "../data/categories";
+import { categoryInk } from "../data/categories";
 import { ANNUAL_EVENTS } from "../data/annual";
+import { MONTHS, MONTHS_SHORT } from "../lib/dates";
 import type { AnnualEvent, CategoryId, Selection } from "../types";
 
 interface Props {
@@ -8,27 +9,11 @@ interface Props {
   selectedId?: string;
 }
 
-const MONTHS = [
-  "January",
-  "February",
-  "March",
-  "April",
-  "May",
-  "June",
-  "July",
-  "August",
-  "September",
-  "October",
-  "November",
-  "December",
-];
-
 export function CalendarView({ active, onSelect, selectedId }: Props) {
   const visible = ANNUAL_EVENTS.filter((e) => active.has(e.category));
   const movable = visible.filter((e) => e.movable);
 
   function renderEvent(event: AnnualEvent) {
-    const cat = CATEGORY_BY_ID[event.category];
     return (
       <button
         key={event.id}
@@ -37,8 +22,8 @@ export function CalendarView({ active, onSelect, selectedId }: Props) {
         aria-pressed={selectedId === event.id}
         onClick={() => onSelect({ kind: "annual", event })}
       >
-        <span className="annual__day" style={{ color: categoryInk(cat.id) }}>
-          {event.movable ? "—" : `${event.day} ${MONTHS[event.month - 1].slice(0, 3)}`}
+        <span className="annual__day" style={{ color: categoryInk(event.category) }}>
+          {event.movable ? "—" : `${event.day} ${MONTHS_SHORT[event.month - 1]}`}
         </span>
         <span>
           <span className="annual__title">{event.title}</span>

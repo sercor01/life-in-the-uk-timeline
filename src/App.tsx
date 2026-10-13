@@ -1,7 +1,7 @@
 import { useCallback, useMemo, useState } from "react";
 import { CATEGORIES } from "./data/categories";
 import { EVENTS } from "./data/events";
-import { clampView, toNorm, FULL_VIEW, MIN_SPAN, type ViewWindow } from "./lib/scale";
+import { MIN_SPAN, FULL_VIEW, clampView, toNorm, type ViewWindow } from "./lib/scale";
 import { CalendarView } from "./components/CalendarView";
 import { DetailPanel } from "./components/DetailPanel";
 import { EventListView } from "./components/EventListView";
@@ -15,6 +15,17 @@ type Tab = "timeline" | "calendar" | "population";
 type TimelineMode = "timeline" | "list";
 
 const FOCUS_SPAN = Math.max(MIN_SPAN * 5, 0.05);
+
+const TABS: { id: Tab; label: string }[] = [
+  { id: "timeline", label: "Timeline" },
+  { id: "calendar", label: "Annual dates" },
+  { id: "population", label: "Population" },
+];
+
+const MODES: { id: TimelineMode; label: string }[] = [
+  { id: "timeline", label: "Graph" },
+  { id: "list", label: "List" },
+];
 
 export default function App() {
   const [tab, setTab] = useState<Tab>("timeline");
@@ -38,6 +49,11 @@ export default function App() {
     });
   }, [active, query]);
 
+  const selectEvent = useCallback((event: TimelineEvent) => {
+    setSelected({ kind: "event", event });
+  }, []);
+
+  /** Jump the timeline to an event and open its detail panel. */
   const focusEvent = useCallback((event: TimelineEvent) => {
     const centre = toNorm(event.year);
     setView(clampView({ n0: centre - FOCUS_SPAN / 2, n1: centre + FOCUS_SPAN / 2 }));
@@ -83,40 +99,25 @@ export default function App() {
         </div>
 
         <div className="tabs" role="tablist" aria-label="View">
-          <button
-            role="tab"
-            aria-selected={tab === "timeline"}
-            onClick={() => setTab("timeline")}
-          >
-            Timeline
-          </button>
-          <button
-            role="tab"
-            aria-selected={tab === "calendar"}
-            onClick={() => setTab("calendar")}
-          >
-            Annual dates
-          </button>
-          <button
-            role="tab"
-            aria-selected={tab === "population"}
-            onClick={() => setTab("population")}
-          >
-            Population
-          </button>
+          {TABS.map((t) => (
+            <button
+              key={t.id}
+              role="tab"
+              aria-selected={tab === t.id}
+              onClick={() => setTab(t.id)}
+            >
+              {t.label}
+            </button>
+          ))}
         </div>
 
         {tab === "timeline" && (
           <div className="mode-toggle" role="group" aria-label="Timeline display">
-            <button
-              aria-pressed={mode === "timeline"}
-              onClick={() => setMode("timeline")}
-            >
-              Graph
-            </button>
-            <button aria-pressed={mode === "list"} onClick={() => setMode("list")}>
-              List
-            </button>
+            {MODES.map((m) => (
+              <button key={m.id} aria-pressed={mode === m.id} onClick={() => setMode(m.id)}>
+                {m.label}
+              </button>
+            ))}
           </div>
         )}
 
@@ -133,14 +134,14 @@ export default function App() {
               view={view}
               onViewChange={setView}
               selectedId={selectedId}
-              onSelect={(event) => setSelected({ kind: "event", event })}
+              onSelect={selectEvent}
             />
           ) : (
             <div className="stage">
               <EventListView
                 events={filteredEvents}
                 selectedId={selectedId}
-                onSelect={(event) => setSelected({ kind: "event", event })}
+                onSelect={selectEvent}
               />
             </div>
           ))}
@@ -149,7 +150,7 @@ export default function App() {
           <div className="stage">
             <CalendarView
               active={active}
-              selectedId={selected?.event.id}
+              selectedId={selectedId}
               onSelect={setSelected}
             />
           </div>

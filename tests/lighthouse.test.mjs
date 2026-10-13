@@ -1,18 +1,14 @@
 import { after, before, test } from "node:test";
 import assert from "node:assert/strict";
 import { mkdirSync, writeFileSync } from "node:fs";
-import { preview } from "vite";
 import lighthouse from "lighthouse";
 import * as chromeLauncher from "chrome-launcher";
 import puppeteer from "puppeteer-core";
-import { findChrome } from "./helpers.mjs";
+import { SKIP_CHROME, findChrome, startPreview } from "./helpers.mjs";
 
 const PORT = 4319;
 const APP_URL = `http://127.0.0.1:${PORT}/`;
 const REPORTS = new URL("../reports/", import.meta.url).pathname;
-
-const SKIP_CHROME =
-  "No Chrome/Chromium found. Install one or set CHROME_PATH to its executable.";
 
 /** Budgets. See AGENTS.md before loosening any of these. */
 const BUDGETS = {
@@ -63,10 +59,7 @@ async function launchForScheme(scheme) {
 before(async () => {
   chromePath = findChrome();
   if (!chromePath) return;
-  server = await preview({
-    preview: { port: PORT, strictPort: true, host: "127.0.0.1" },
-    logLevel: "silent",
-  });
+  server = await startPreview(PORT);
   for (const theme of THEMES) chromes[theme] = await launchForScheme(theme);
   mkdirSync(REPORTS, { recursive: true });
 });

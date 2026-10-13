@@ -1,24 +1,18 @@
 import { useEffect, useRef, useState } from "react";
-import { POPULATION, type PopulationPoint } from "../data/population";
+import { POPULATION, POPULATION_MAX_MILLIONS } from "../data/population";
 
-/** Top of the y-axis, in millions. Chosen so 67m sits below the top edge. */
-const Y_MAX = 70;
 const PAD = { top: 26, right: 18, bottom: 30, left: 46 };
 /** Years the handbook gives as a round number, labelled on the curve. */
 const ANCHORS = new Set([1801, 1851, 1901, 1951]);
 const GRID = [20, 40, 60];
 const YEAR_TICKS = [1600, 1700, 1800, 1900, 2000];
 
-interface Props {
-  points?: PopulationPoint[];
-}
-
 /**
  * Area chart of the handbook's population table. It is decorative: the
  * milestone list in `PopulationView` carries the same numbers in text, so the
  * SVG is hidden from assistive tech.
  */
-export function PopulationChart({ points = POPULATION }: Props) {
+export function PopulationChart() {
   const hostRef = useRef<HTMLDivElement>(null);
   const [width, setWidth] = useState(0);
 
@@ -38,17 +32,18 @@ export function PopulationChart({ points = POPULATION }: Props) {
   const plotW = Math.max(0, width - PAD.left - PAD.right);
   const plotH = Math.max(0, height - PAD.top - PAD.bottom);
 
-  const years = points.map((p) => p.year);
+  const years = POPULATION.map((p) => p.year);
   const minYear = Math.min(...years);
   const maxYear = Math.max(...years);
 
   const xOf = (year: number) =>
     PAD.left + ((year - minYear) / (maxYear - minYear)) * plotW;
-  const yOf = (millions: number) => PAD.top + plotH - (millions / Y_MAX) * plotH;
+  const yOf = (millions: number) =>
+    PAD.top + plotH - (millions / POPULATION_MAX_MILLIONS) * plotH;
 
-  const line = points
-    .map((p, i) => `${i === 0 ? "M" : "L"}${xOf(p.year).toFixed(1)},${yOf(p.millions).toFixed(1)}`)
-    .join(" ");
+  const line = POPULATION.map(
+    (p, i) => `${i === 0 ? "M" : "L"}${xOf(p.year).toFixed(1)},${yOf(p.millions).toFixed(1)}`,
+  ).join(" ");
   const area = `${line} L${xOf(maxYear).toFixed(1)},${yOf(0).toFixed(1)} L${xOf(minYear).toFixed(1)},${yOf(0).toFixed(1)} Z`;
 
   return (
@@ -103,7 +98,7 @@ export function PopulationChart({ points = POPULATION }: Props) {
           strokeLinecap="round"
         />
 
-        {points.map((p) => (
+        {POPULATION.map((p) => (
           <circle
             key={p.year}
             className="pop-chart__dot"
@@ -116,19 +111,17 @@ export function PopulationChart({ points = POPULATION }: Props) {
           />
         ))}
 
-        {points
-          .filter((p) => ANCHORS.has(p.year))
-          .map((p) => (
-            <text
-              key={`label-${p.year}`}
-              x={xOf(p.year)}
-              y={yOf(p.millions) - 12}
-              textAnchor="middle"
-              className="pop-chart__anchor"
-            >
-              {p.millions}m
-            </text>
-          ))}
+        {POPULATION.filter((p) => ANCHORS.has(p.year)).map((p) => (
+          <text
+            key={`label-${p.year}`}
+            x={xOf(p.year)}
+            y={yOf(p.millions) - 12}
+            textAnchor="middle"
+            className="pop-chart__anchor"
+          >
+            {p.millions}m
+          </text>
+        ))}
 
         {YEAR_TICKS.map((year) => (
           <text

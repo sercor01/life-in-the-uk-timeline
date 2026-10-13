@@ -2,6 +2,7 @@ import { useMemo, useRef, useState } from "react";
 import { ANNUAL_EVENTS } from "../data/annual";
 import { EVENTS } from "../data/events";
 import { categoryColor } from "../data/categories";
+import { MONTHS_SHORT } from "../lib/dates";
 import { formatRange } from "../lib/lanes";
 import type { Selection } from "../types";
 
@@ -18,21 +19,6 @@ interface Match {
   color: string;
   selection: Selection;
 }
-
-const MONTHS = [
-  "Jan",
-  "Feb",
-  "Mar",
-  "Apr",
-  "May",
-  "Jun",
-  "Jul",
-  "Aug",
-  "Sep",
-  "Oct",
-  "Nov",
-  "Dec",
-];
 
 function buildIndex(): Match[] {
   const matches: Match[] = [];
@@ -51,7 +37,7 @@ function buildIndex(): Match[] {
       label: event.title,
       meta: event.movable
         ? "Each year (movable)"
-        : `${event.day} ${MONTHS[event.month - 1]} (every year)`,
+        : `${event.day} ${MONTHS_SHORT[event.month - 1]} (every year)`,
       color: categoryColor(event.category),
       selection: { kind: "annual", event },
     });

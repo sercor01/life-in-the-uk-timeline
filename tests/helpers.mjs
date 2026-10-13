@@ -1,6 +1,11 @@
 import { existsSync } from "node:fs";
 import os from "node:os";
 import puppeteer from "puppeteer-core";
+import { preview } from "vite";
+
+/** Shared skip reason for suites that need a browser. */
+export const SKIP_CHROME =
+  "No Chrome/Chromium found. Install one or set CHROME_PATH to its executable.";
 
 const CANDIDATES = {
   darwin: [
@@ -46,3 +51,32 @@ export function launchBrowser() {
 }
 
 export const wait = (ms) => new Promise((resolve) => setTimeout(resolve, ms));
+
+/**
+ * Serve the production build on a fixed port. `host` is pinned to IPv4 because
+ * `localhost` can resolve to `::1` and the suites rely on a stable URL.
+ */
+export function startPreview(port) {
+  return preview({
+    preview: { port, strictPort: true, host: "127.0.0.1" },
+    logLevel: "silent",
+  });
+}
+
+/**
+ * Click the first element matching `selector` whose text contains `label`.
+ * Omit `label` to click the first match.
+ */
+export function clickByText(page, selector, label) {
+  return page.evaluate(
+    (sel, text) => {
+      const el = [...document.querySelectorAll(sel)].find(
+        (n) => !text || n.textContent.includes(text),
+      );
+      if (!el) throw new Error(`No "${text ?? ""}" in ${sel}`);
+      el.click();
+    },
+    selector,
+    label,
+  );
+}

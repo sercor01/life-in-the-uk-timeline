@@ -1,5 +1,6 @@
 import { CATEGORY_BY_ID, categoryColor, categoryInk, categoryTint } from "../data/categories";
 import { resolveRefs } from "../data/exams";
+import { formatAnnualDate } from "../lib/dates";
 import { formatRange } from "../lib/lanes";
 import type { Selection } from "../types";
 
@@ -10,36 +11,14 @@ interface Props {
   onOpenPopulation?: () => void;
 }
 
-const MONTHS = [
-  "January",
-  "February",
-  "March",
-  "April",
-  "May",
-  "June",
-  "July",
-  "August",
-  "September",
-  "October",
-  "November",
-  "December",
-];
-
-function ordinal(n: number): string {
-  if (n % 10 === 1 && n !== 11) return `${n}st`;
-  if (n % 10 === 2 && n !== 12) return `${n}nd`;
-  if (n % 10 === 3 && n !== 13) return `${n}rd`;
-  return `${n}th`;
-}
-
 export function DetailPanel({ selection, onClose, onOpenPopulation }: Props) {
   if (!selection) {
     return (
       <aside className="detail detail--empty" aria-label="Event details">
         <div>
-          <p style={{ fontSize: 34, margin: 0 }}>🗓️</p>
-          <h2 style={{ fontSize: 17, margin: "10px 0 6px" }}>Pick a date</h2>
-          <p style={{ fontSize: 13.5, lineHeight: 1.6, margin: 0 }}>
+          <p className="detail__empty-emoji">🗓️</p>
+          <h2>Pick a date</h2>
+          <p>
             Select any marker on the timeline to read the full story, the exam
             reference and the questions it came from.
           </p>
@@ -51,13 +30,17 @@ export function DetailPanel({ selection, onClose, onOpenPopulation }: Props) {
   const event = selection.event;
   const category = CATEGORY_BY_ID[event.category];
   const refs = resolveRefs(event.examRefs);
+  const isEvent = selection.kind === "event";
+  const source = isEvent ? selection.event.source : null;
+  const isHandbookOnly = isEvent && refs.length === 0 && source === "handbook";
 
-  const dateLine =
-    selection.kind === "event"
-      ? formatRange(selection.event)
-      : selection.event.movable
-        ? "Movable feast · changes each year"
-        : `${ordinal(selection.event.day)} ${MONTHS[selection.event.month - 1]} · every year`;
+  const dateLine = isEvent
+    ? formatRange(selection.event)
+    : formatAnnualDate(
+        selection.event.month,
+        selection.event.day,
+        selection.event.movable,
+      );
 
   return (
     <aside className="detail" aria-label="Event details">
@@ -71,9 +54,9 @@ export function DetailPanel({ selection, onClose, onOpenPopulation }: Props) {
       >
         <span className="marker__dot" style={{ background: categoryColor(category.id) }} />
         {category.label}
-        {selection.kind === "event" && (
+        {source && (
           <span className="detail__eyebrow-tag">
-            · {selection.event.source === "exam" ? "from exam" : "handbook"}
+            · {source === "exam" ? "from exam" : "handbook"}
           </span>
         )}
       </span>
@@ -100,24 +83,26 @@ export function DetailPanel({ selection, onClose, onOpenPopulation }: Props) {
                 Set {ref.set} · Q{ref.id}: {question.question}
               </p>
               {question.reference.trim() && <p>{question.reference.trim()}</p>}
-              <div className="detail__links" style={{ marginTop: 8 }}>
-                {question.answers
-                  .filter((a) => a.isCorrect)
-                  .map((a) => (
-                    <span className="chip" key={a.text}>
-                      ✓ {a.text}
-                    </span>
-                  ))}
-              </div>
+              {question.answers.some((a) => a.isCorrect) && (
+                <div className="detail__links">
+                  {question.answers
+                    .filter((a) => a.isCorrect)
+                    .map((a) => (
+                      <span className="chip" key={a.text}>
+                        ✓ {a.text}
+                      </span>
+                    ))}
+                </div>
+              )}
             </div>
           ))}
         </div>
       )}
 
-      {refs.length === 0 && selection.kind === "event" && selection.event.source === "handbook" && (
+      {isHandbookOnly && (
         <div className="detail__section">
           <h3>Source</h3>
-          <p style={{ fontSize: 13.5, lineHeight: 1.6, color: "var(--muted)", margin: 0 }}>
+          <p className="detail__note">
             This date is from the official handbook but does not appear in the
             question sets you provided, so there is no exam reference to show.
           </p>

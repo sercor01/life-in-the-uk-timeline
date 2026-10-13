@@ -132,14 +132,3 @@ export function panView(view: ViewWindow, dxPixels: number, width: number): View
   const dn = (dxPixels / width) * span;
   return clampView({ n0: view.n0 + dn, n1: view.n1 + dn });
 }
-
-/** The year range currently visible, useful for choosing ticks and labels. */
-export function visibleYears(view: ViewWindow): { from: number; to: number } {
-  return { from: toValue(view.n0), to: toValue(view.n1) };
-}
-
-export function spanToZoomLevel(span: number): number {
-  // 0 = fully zoomed out, 1 = fully zoomed in, on a log curve.
-  const ratio = (NORM_MAX - NORM_MIN) / span;
-  return clamp(Math.log10(ratio) / Math.log10((NORM_MAX - NORM_MIN) / MIN_SPAN), 0, 1);
-}

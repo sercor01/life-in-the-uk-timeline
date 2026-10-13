@@ -10,13 +10,13 @@ npm install
 npm run dev      # start the dev server
 npm run build    # type-check and build to dist/
 npm run preview  # preview the production build
-npm test             # build, then run the smoke + contrast + Lighthouse suites
+npm test             # build, then run the smoke + contrast + axe + Lighthouse suites
 npm run lighthouse   # just the Lighthouse budgets (writes reports/)
 ```
 
 ## What it does
 
-- **Historical timeline** of dated events from the Stone Age to 2012.
+- **Historical timeline** of dated events from the Stone Age to the 2020s.
 - **Zoom & pan** with the scroll wheel, trackpad, pinch, drag, double-click, the
   `+` / `−` buttons, or the arrow keys. A minimap at the bottom lets you jump
   anywhere.
@@ -27,8 +27,10 @@ npm run lighthouse   # just the Lighthouse budgets (writes reports/)
 - **Range bars** for things that lasted a while (wars, reigns, booms).
 - **Annual dates tab** for the dates that repeat every year (saint days,
   Christmas, Hogmanay, Halloween…) plus movable feasts like Easter and Lent.
+- **Population tab** for the handbook's population table: a growth chart, the
+  figures in words, and how the total is spread across the four nations.
 - **Detail panel** with the summary, the original exam reference text and the
-  correct answers, plus links back to the exact question.
+  correct answers.
 - **Colour per category** with a legend that doubles as a filter, and a search
   box that jumps straight to a date.
 - **Works on phones, tablets and desktops**: the detail panel becomes a bottom
@@ -46,6 +48,9 @@ npm run lighthouse   # just the Lighthouse budgets (writes reports/)
   importance (3 = always shown, 1 = only when zoomed in), and links back to the
   quiz questions it came from.
 - `src/data/annual.ts` — the dates that repeat every year.
+- `src/data/population.ts` — the handbook's population table, the growth steps
+  and the four-nation shares. Each figure also becomes a `handbook` event on the
+  timeline so the numbers live in one place.
 - `src/data/categories.ts` — the categories (colours live in `src/index.css` as
   CSS variables so light and dark themes can each be accessible).
 
@@ -57,7 +62,7 @@ To add an event, append to `src/data/events.ts`. To point at a question, use
 `npm test` gates the build on four headless-browser suites:
 
 - **Smoke** (`tests/smoke.test.mjs`) — timeline renders, zoom, pan, search,
-  filters, list mode, the annual tab, and a phone viewport.
+  filters, list mode, the annual tab, the population tab, and a phone viewport.
 - **Contrast** (`tests/contrast.test.mjs`) — the design tokens meet WCAG AA in
   both themes (text ≥ 4.5:1, graphics ≥ 3:1), including text over the era bands.
 - **axe** (`tests/axe.test.mjs`) — axe-core audits every rendered screen/state in

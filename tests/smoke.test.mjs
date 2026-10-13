@@ -1,21 +1,14 @@
 import { after, before, test } from "node:test";
 import assert from "node:assert/strict";
-import { preview } from "vite";
-import { launchBrowser, wait } from "./helpers.mjs";
+import { SKIP_CHROME, clickByText, launchBrowser, startPreview, wait } from "./helpers.mjs";
 
 const PORT = 4317;
 let server;
 let browser;
 
-const SKIP_CHROME =
-  "No Chrome/Chromium found. Install one or set CHROME_PATH to its executable.";
-
 // ---------------------------------------------------------------- lifecycle
 before(async () => {
-  server = await preview({
-    preview: { port: PORT, strictPort: true, host: "127.0.0.1" },
-    logLevel: "silent",
-  });
+  server = await startPreview(PORT);
   try {
     browser = await launchBrowser();
   } catch {
@@ -53,19 +46,6 @@ async function withPage(t, fn, width, height) {
     await page.close();
   }
 }
-
-const clickByText = (page, selector, text) =>
-  page.evaluate(
-    (sel, label) => {
-      const el = [...document.querySelectorAll(sel)].find((n) =>
-        n.textContent.includes(label),
-      );
-      if (!el) throw new Error(`No "${label}" in ${sel}`);
-      el.click();
-    },
-    selector,
-    text,
-  );
 
 const overviewWindow = (page) =>
   page.$eval(".overview__window", (el) => ({

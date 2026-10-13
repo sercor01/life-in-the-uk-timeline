@@ -26,6 +26,13 @@ export interface PopulationPoint {
   importance: 1 | 2 | 3;
 }
 
+/**
+ * Top of the population chart's y-axis and the length its milestone bars are
+ * measured against, in millions. Chosen so the largest figure sits below the
+ * top edge with a little headroom.
+ */
+export const POPULATION_MAX_MILLIONS = 70;
+
 export const POPULATION: PopulationPoint[] = [
   { year: 1600, label: "Just over 4 million", millions: 4.1, importance: 1 },
   {

@@ -1,8 +1,10 @@
-import { NATION_SHARES, POPULATION, POPULATION_GROWTH } from "../data/population";
+import {
+  NATION_SHARES,
+  POPULATION,
+  POPULATION_GROWTH,
+  POPULATION_MAX_MILLIONS,
+} from "../data/population";
 import { PopulationChart } from "./PopulationChart";
-
-/** Bar scale, in millions. Matches the chart's y-axis so the two line up. */
-const BAR_MAX = 70;
 
 export function PopulationView() {
   return (
@@ -41,7 +43,7 @@ export function PopulationView() {
               <div className="milestone__track">
                 <span
                   className="milestone__bar"
-                  style={{ width: `${(point.millions / BAR_MAX) * 100}%` }}
+                  style={{ width: `${(point.millions / POPULATION_MAX_MILLIONS) * 100}%` }}
                 />
               </div>
               {point.note && <p className="milestone__note">{point.note}</p>}

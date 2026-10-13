@@ -1,4 +1,4 @@
-import { CATEGORY_BY_ID, categoryColor } from "../data/categories";
+import { categoryColor } from "../data/categories";
 import { formatRange } from "../lib/lanes";
 import type { TimelineEvent } from "../types";
 
@@ -28,7 +28,6 @@ export function EventListView({ events, selectedId, onSelect }: Props) {
           <section className="list__group" key={era.label}>
             <h2 className="list__year">{era.label}</h2>
             {inEra.map((event) => {
-              const cat = CATEGORY_BY_ID[event.category];
               return (
                 <button
                   key={event.id}
@@ -36,13 +35,8 @@ export function EventListView({ events, selectedId, onSelect }: Props) {
                   className="card"
                   aria-pressed={selectedId === event.id}
                   onClick={() => onSelect(event)}
-                  style={
-                    selectedId === event.id
-                      ? { borderColor: "var(--accent)" }
-                      : undefined
-                  }
                 >
-                  <span className="card__bar" style={{ background: categoryColor(cat.id) }} />
+                  <span className="card__bar" style={{ background: categoryColor(event.category) }} />
                   <span className="card__body">
                     <span className="card__meta">{formatRange(event)}</span>
                     <span className="card__title">{event.title}</span>
@@ -55,9 +49,7 @@ export function EventListView({ events, selectedId, onSelect }: Props) {
         );
       })}
       {sorted.length === 0 && (
-        <p style={{ color: "var(--muted)", padding: "20px 4px" }}>
-          No events match the current filters.
-        </p>
+        <p className="list__empty">No events match the current filters.</p>
       )}
     </div>
   );

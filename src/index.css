@@ -595,6 +595,22 @@ button {
   padding: 28px;
 }
 
+.detail--empty h2 {
+  font-size: 17px;
+  margin: 10px 0 6px;
+}
+
+.detail--empty p {
+  font-size: 13.5px;
+  line-height: 1.6;
+  margin: 0;
+}
+
+.detail__empty-emoji {
+  font-size: 34px;
+  margin: 0;
+}
+
 .detail__close {
   position: absolute;
   top: 12px;
@@ -646,6 +662,13 @@ button {
   font-size: 14.5px;
   line-height: 1.6;
   margin: 0 0 20px;
+}
+
+.detail__note {
+  font-size: 13.5px;
+  line-height: 1.6;
+  color: var(--muted);
+  margin: 0;
 }
 
 .detail__section {
@@ -815,6 +838,11 @@ button {
   font-variant-numeric: tabular-nums;
 }
 
+.list__empty {
+  color: var(--muted);
+  padding: 20px 4px;
+}
+
 .card {
   display: flex;
   gap: 12px;
@@ -829,6 +857,10 @@ button {
 }
 
 .card:hover {
+  border-color: var(--accent);
+}
+
+.card[aria-pressed="true"] {
   border-color: var(--accent);
 }
 

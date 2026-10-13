@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
-import { CATEGORY_BY_ID, categoryColor } from "../data/categories";
+import { categoryColor } from "../data/categories";
 import { layoutEvents, formatRange, formatYear } from "../lib/lanes";
 import {
   MIN_SPAN,
@@ -85,7 +85,7 @@ export function Timeline({ events, view, onViewChange, selectedId, onSelect }: P
   const charWidth = width < 700 ? 6.0 : 6.4;
 
   const layout = useMemo(() => {
-    if (width === 0) return { placed: [], hidden: [], laneCount };
+    if (width === 0) return [];
     return layoutEvents(events, {
       view,
       width,
@@ -120,7 +120,7 @@ export function Timeline({ events, view, onViewChange, selectedId, onSelect }: P
   }, [view, width]);
 
   const marked = useMemo(() => {
-    return layout.placed.map((p) => {
+    return layout.map((p) => {
       const half = p.labelWidth / 2;
       const clampX = Math.min(Math.max(p.x, half + 4), Math.max(half + 4, width - half - 4));
       return { ...p, clampX };
@@ -317,9 +317,8 @@ export function Timeline({ events, view, onViewChange, selectedId, onSelect }: P
           })}
 
           {/* range bars */}
-          {layout.placed.map(({ event, x }) => {
+          {layout.map(({ event, x }) => {
             if (event.endYear === undefined) return null;
-            const cat = CATEGORY_BY_ID[event.category];
             const xEnd = normToX(toNorm(event.endYear), view, width);
             const left = Math.max(-width, Math.min(x, xEnd));
             const right = Math.min(width * 2, Math.max(x, xEnd));
@@ -331,7 +330,7 @@ export function Timeline({ events, view, onViewChange, selectedId, onSelect }: P
                 width={Math.max(4, right - left)}
                 height={8}
                 rx={4}
-                fill={categoryColor(cat.id)}
+                fill={categoryColor(event.category)}
                 opacity={selectedId === event.id ? 0.85 : 0.5}
               />
             );
@@ -339,24 +338,21 @@ export function Timeline({ events, view, onViewChange, selectedId, onSelect }: P
 
           {/* selected guide */}
           {selectedId &&
-            layout.placed
-              .filter((p) => p.event.id === selectedId)
-              .map(({ x }) => (
-                <line
-                  key="guide"
-                  x1={x}
-                  y1={topPad - 12}
-                  x2={x}
-                  y2={axisY}
-                  stroke="var(--accent)"
-                  strokeWidth={1.5}
-                  strokeDasharray="4 4"
-                />
-              ))}
+            layout.filter((p) => p.event.id === selectedId).map(({ x }) => (
+              <line
+                key="guide"
+                x1={x}
+                y1={topPad - 12}
+                x2={x}
+                y2={axisY}
+                stroke="var(--accent)"
+                strokeWidth={1.5}
+                strokeDasharray="4 4"
+              />
+            ))}
 
           {/* stems and dots */}
           {marked.map(({ event, x, clampX, lane }) => {
-            const cat = CATEGORY_BY_ID[event.category];
             const laneY = axisY - LANE_OFFSET - lane * LANE_SPACING;
             return (
               <g key={`stem-${event.id}`}>
@@ -365,11 +361,11 @@ export function Timeline({ events, view, onViewChange, selectedId, onSelect }: P
                   y1={axisY}
                   x2={clampX}
                   y2={laneY + 4}
-                  stroke={categoryColor(cat.id)}
+                  stroke={categoryColor(event.category)}
                   strokeWidth={1.5}
                   opacity={0.55}
                 />
-                <circle cx={x} cy={axisY} r={selectedId === event.id ? 6 : 4.5} fill={categoryColor(cat.id)} />
+                <circle cx={x} cy={axisY} r={selectedId === event.id ? 6 : 4.5} fill={categoryColor(event.category)} />
               </g>
             );
           })}
@@ -377,20 +373,19 @@ export function Timeline({ events, view, onViewChange, selectedId, onSelect }: P
 
         <div className="timeline__labels" ref={labelsRef}>
           {marked.map(({ event, clampX, lane }) => {
-            const cat = CATEGORY_BY_ID[event.category];
             const laneY = axisY - LANE_OFFSET - lane * LANE_SPACING;
             return (
               <button
                 key={event.id}
                 type="button"
                 className={`marker${event.source === "handbook" ? " marker--handbook" : ""}`}
-                style={{ left: clampX, top: laneY, borderLeft: `3px solid ${categoryColor(cat.id)}` }}
+                style={{ left: clampX, top: laneY, borderLeft: `3px solid ${categoryColor(event.category)}` }}
                 aria-pressed={selectedId === event.id}
                 title={`${formatRange(event)} — ${event.title}`}
                 onPointerDown={(e) => e.stopPropagation()}
                 onClick={() => onSelect(event)}
               >
-                <span className="marker__dot" style={{ background: categoryColor(cat.id) }} />
+                <span className="marker__dot" style={{ background: categoryColor(event.category) }} />
                 <span className="marker__year">{formatRange(event)}</span>
                 <span className="marker__title">{event.title}</span>
                 {event.source === "handbook" && <span className="marker__badge">hb</span>}

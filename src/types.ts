@@ -65,7 +65,3 @@ export interface ExamQuestion {
   reference: string;
   answers: { text: string; isCorrect: boolean }[];
 }
-
-export interface ExamSet {
-  [setId: string]: ExamQuestion[];
-}

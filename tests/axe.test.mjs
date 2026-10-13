@@ -1,15 +1,12 @@
 import { after, before, test } from "node:test";
 import assert from "node:assert/strict";
 import { createRequire } from "node:module";
-import { preview } from "vite";
-import { launchBrowser, wait } from "./helpers.mjs";
+import { SKIP_CHROME, clickByText, launchBrowser, startPreview, wait } from "./helpers.mjs";
 
 const require = createRequire(import.meta.url);
 const AXE_PATH = require.resolve("axe-core/axe.min.js");
 
 const PORT = 4320;
-const SKIP_CHROME =
-  "No Chrome/Chromium found. Install one or set CHROME_PATH to its executable.";
 
 /** WCAG 2.0 / 2.1 / 2.2 A + AA rules. */
 const TAGS = ["wcag2a", "wcag2aa", "wcag21a", "wcag21aa", "wcag22aa"];
@@ -20,57 +17,45 @@ const VIEWPORTS = [
   { name: "phone", width: 390, height: 844 },
 ];
 
-const click = (page, selector, text) =>
-  page.evaluate(
-    (sel, label) => {
-      const el = [...document.querySelectorAll(sel)].find(
-        (n) => !label || n.textContent.includes(label),
-      );
-      if (!el) throw new Error(`No "${label ?? ""}" in ${sel}`);
-      el.click();
-    },
-    selector,
-    text,
-  );
 
 /** Every screen / state worth auditing. */
 const STATES = [
   { name: "timeline", go: async () => {} },
   {
     name: "timeline with detail open",
-    go: (page) => click(page, ".marker"),
+    go: (page) => clickByText(page, ".marker"),
   },
   {
     name: "list view",
-    go: (page) => click(page, ".mode-toggle button", "List"),
+    go: (page) => clickByText(page, ".mode-toggle button", "List"),
   },
   {
     name: "list view with detail open",
     go: async (page) => {
-      await click(page, ".mode-toggle button", "List");
+      await clickByText(page, ".mode-toggle button", "List");
       await wait(150);
-      await click(page, ".card");
+      await clickByText(page, ".card");
     },
   },
   {
     name: "annual dates",
-    go: (page) => click(page, ".tabs button", "Annual dates"),
+    go: (page) => clickByText(page, ".tabs button", "Annual dates"),
   },
   {
     name: "annual dates with detail open",
     go: async (page) => {
-      await click(page, ".tabs button", "Annual dates");
+      await clickByText(page, ".tabs button", "Annual dates");
       await wait(150);
-      await click(page, ".annual");
+      await clickByText(page, ".annual");
     },
   },
   {
     name: "population",
-    go: (page) => click(page, ".tabs button", "Population"),
+    go: (page) => clickByText(page, ".tabs button", "Population"),
   },
   {
     name: "a category hidden",
-    go: (page) => click(page, ".legend__item", "Sport"),
+    go: (page) => clickByText(page, ".legend__item", "Sport"),
   },
 ];
 
@@ -78,10 +63,7 @@ let server;
 let browser;
 
 before(async () => {
-  server = await preview({
-    preview: { port: PORT, strictPort: true, host: "127.0.0.1" },
-    logLevel: "silent",
-  });
+  server = await startPreview(PORT);
   try {
     browser = await launchBrowser();
   } catch {

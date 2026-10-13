@@ -3,19 +3,11 @@ import { toNorm, type ViewWindow, type normToX } from "./scale";
 
 export interface PlacedEvent {
   event: TimelineEvent;
-  norm: number;
   x: number;
   /** Lane index, 0 is the lane nearest the axis. */
   lane: number;
   /** Estimated label width in pixels. */
   labelWidth: number;
-}
-
-export interface LayoutResult {
-  placed: PlacedEvent[];
-  /** Events that did not fit in the available lanes. */
-  hidden: TimelineEvent[];
-  laneCount: number;
 }
 
 interface LayoutOptions {
@@ -34,10 +26,10 @@ interface LayoutOptions {
 /**
  * Place the visible events into horizontal lanes so labels do not overlap.
  *
- * More important events are placed first and get the lower lanes; when we run
- * out of lanes the least important events are dropped from the view.
+ * More important events are placed first and get the lower lanes; events that
+ * cannot find a free lane are omitted from the result.
  */
-export function layoutEvents(events: TimelineEvent[], opts: LayoutOptions): LayoutResult {
+export function layoutEvents(events: TimelineEvent[], opts: LayoutOptions): PlacedEvent[] {
   const { view, width, laneCount, charWidth, labelPadding, gap, xOf } = opts;
 
   const candidates: PlacedEvent[] = [];
@@ -49,7 +41,7 @@ export function layoutEvents(events: TimelineEvent[], opts: LayoutOptions): Layo
     // Handbook events carry a small badge, so reserve a little more room.
     const badge = event.source === "handbook" ? 30 : 0;
     const labelWidth = Math.min(280, text.length * charWidth + labelPadding + badge);
-    candidates.push({ event, norm, x, lane: 0, labelWidth });
+    candidates.push({ event, x, lane: 0, labelWidth });
   }
 
   // Most important first, then left to right. importance 3 > 2 > 1.
@@ -61,7 +53,6 @@ export function layoutEvents(events: TimelineEvent[], opts: LayoutOptions): Layo
   );
 
   const placed: PlacedEvent[] = [];
-  const hidden: TimelineEvent[] = [];
 
   for (const candidate of candidates) {
     const left = candidate.x - candidate.labelWidth / 2;
@@ -74,16 +65,13 @@ export function layoutEvents(events: TimelineEvent[], opts: LayoutOptions): Layo
         break;
       }
     }
-    if (laneIndex === -1) {
-      hidden.push(candidate.event);
-      continue;
-    }
+    if (laneIndex === -1) continue;
     lanes[laneIndex].push({ left, right });
     candidate.lane = laneIndex;
     placed.push(candidate);
   }
 
-  return { placed, hidden, laneCount };
+  return placed;
 }
 
 export function formatRange(event: TimelineEvent): string {

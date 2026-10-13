@@ -36,22 +36,26 @@ src/
   data/
     events.ts            # curated historical events (the main content)
     annual.ts            # dates that repeat every year
+    population.ts        # handbook population table (+ chart/milestone scale)
     categories.ts        # categories + colours
     exams.ts             # loads exams.json and resolves ExamRef -> question
   lib/
     scale.ts             # piecewise time scale (year <-> normalised 0..1)
     lanes.ts             # label layout into non-overlapping lanes + date fmt
+    dates.ts             # month names + annual-date formatting
   components/
     Timeline.tsx         # SVG timeline, zoom/pan gestures, ticks, markers
     Overview.tsx         # draggable minimap
     DetailPanel.tsx      # side panel / mobile bottom sheet
     EventListView.tsx    # accessible list fallback
     CalendarView.tsx     # annual dates tab
+    PopulationView.tsx   # population tab (chart, figures, nations)
+    PopulationChart.tsx  # decorative area chart for the population tab
     Legend.tsx           # category filter
     SearchBar.tsx        # search + jump
   index.css              # all styles (single stylesheet, CSS variables)
 tests/
-  helpers.mjs            # Chrome detection + browser launch
+  helpers.mjs            # Chrome detection, browser launch, preview + click helpers
   smoke.test.mjs         # node:test + puppeteer-core smoke suite
   contrast.test.mjs      # WCAG AA contrast audit of the design tokens
   axe.test.mjs           # axe-core WCAG A/AA audit of rendered screens
@@ -70,6 +74,9 @@ tests/
   events render with a dashed border and an `hb` badge.
 - `AnnualEvent` has `month`/`day` and an optional `movable` for feasts without a
   fixed date.
+- The population figures live in `data/population.ts` (one table) and are mapped
+  into `handbook` timeline events in `events.ts`, so the numbers are not
+  duplicated. `POPULATION_MAX_MILLIONS` is the shared chart/bar scale.
 - Categories live in one place (`categories.ts`); the colour *values* are CSS
   custom properties (`--c-<id>`, `--c-<id>-tint`, `--c-<id>-ink`) defined per
   theme in `index.css`. Add a category there and it flows through the legend,
@@ -108,22 +115,22 @@ tests/
 
 ## Testing
 
-`npm test` builds the app and runs three headless-browser suites with
+`npm test` builds the app and runs four headless-browser suites with
 `node:test`, against the production build served by `vite preview`:
 
 - `tests/smoke.test.mjs` (port `4317`) — rendering, zoom, pan, search, category
-  filtering, list mode, the annual tab and a phone viewport (no horizontal
-  overflow, bottom sheet opens). Uses `puppeteer-core`.
+  filtering, list mode, the annual and population tabs and a phone viewport (no
+  horizontal overflow, bottom sheet opens). Uses `puppeteer-core`.
 - `tests/contrast.test.mjs` (port `4318`) — reads the real CSS custom properties
   in both the light and dark themes and asserts every text pair is >= 4.5:1 and
   every graphic/axis/focus pair is >= 3:1 (WCAG AA). Checks the *tokens*;
   includes text over the era bands, which axe cannot measure.
-- `tests/axe.test.mjs` (port `4320`) — runs axe-core against 7 rendered states
-  (timeline, list, annual, each with a detail panel open, and a hidden category)
-  across both themes and desktop/phone, for WCAG 2.0/2.1/2.2 A + AA. Checks the
-  *rendered screens*; catches things the token test cannot, e.g. text dimmed with
-  opacity. Contrast results axe leaves undecided (gradient backgrounds) are only
-  logged, since `contrast.test.mjs` covers them.
+- `tests/axe.test.mjs` (port `4320`) — runs axe-core against 8 rendered states
+  (timeline, list, annual, population and a hidden category, several with a
+  detail panel open) across both themes and desktop/phone, for WCAG 2.0/2.1/2.2
+  A + AA. Checks the *rendered screens*; catches things the token test cannot,
+  e.g. text dimmed with opacity. Contrast results axe leaves undecided (gradient
+  backgrounds) are only logged, since `contrast.test.mjs` covers them.
 - `tests/lighthouse.test.mjs` (port `4319`) — runs Lighthouse on the production
   build for mobile and desktop, **in both light and dark themes** (the colour
   scheme is forced via Blink and verified with `matchMedia`), 3 runs each, and
@@ -146,8 +153,9 @@ and only the axe suite catches it. Use a different weight or a solid colour.
 
 To extend the smoke suite, add a `test(...)` using the
 `withPage(t, async (page) => { ... })` helper, which opens a fresh page (or
-skips cleanly if no browser is found). Each suite starts its own preview server,
-so give a new suite a distinct port.
+skips cleanly if no browser is found). Each suite starts its own preview server
+via `startPreview(port)` from `tests/helpers.mjs`, so give a new suite a
+distinct port.
 
 When picking colours, iterate with a small contrast function (the one in
 `tests/contrast.test.mjs`) until it passes, then paste the values into

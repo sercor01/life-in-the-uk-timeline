@@ -1,11 +1,8 @@
 import { after, before, test } from "node:test";
 import assert from "node:assert/strict";
-import { preview } from "vite";
-import { launchBrowser, wait } from "./helpers.mjs";
+import { SKIP_CHROME, launchBrowser, startPreview, wait } from "./helpers.mjs";
 
 const PORT = 4318;
-const SKIP_CHROME =
-  "No Chrome/Chromium found. Install one or set CHROME_PATH to its executable.";
 
 const CATEGORY_IDS = [
   "prehistory",
@@ -50,10 +47,7 @@ let server;
 let browser;
 
 before(async () => {
-  server = await preview({
-    preview: { port: PORT, strictPort: true, host: "127.0.0.1" },
-    logLevel: "silent",
-  });
+  server = await startPreview(PORT);
   try {
     browser = await launchBrowser();
   } catch {
