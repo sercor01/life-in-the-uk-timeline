@@ -37,17 +37,21 @@ src/
     events.ts            # curated historical events (the main content)
     annual.ts            # dates that repeat every year
     population.ts        # handbook population table (+ chart/milestone scale)
+    eras.ts              # historical eras: shared by the bands and the list
     categories.ts        # categories + colours
     exams.ts             # loads exams.json and resolves ExamRef -> question
   lib/
     scale.ts             # piecewise time scale (year <-> normalised 0..1)
     lanes.ts             # label layout into non-overlapping lanes + date fmt
+    ticks.ts             # axis tick years for a view and width
     dates.ts             # month names + annual-date formatting
+    useTimelineGestures.ts # wheel / pointer / keyboard zoom + pan hook
   components/
-    Timeline.tsx         # SVG timeline, zoom/pan gestures, ticks, markers
+    Timeline.tsx         # SVG timeline, ticks, markers + label clamping
+    TimelineControls.tsx # zoom in / out / reset buttons
     Overview.tsx         # draggable minimap
     DetailPanel.tsx      # side panel / mobile bottom sheet
-    EventListView.tsx    # accessible list fallback
+    EventListView.tsx    # accessible list fallback, grouped by era
     CalendarView.tsx     # annual dates tab
     PopulationView.tsx   # population tab (chart, figures, nations)
     PopulationChart.tsx  # decorative area chart for the population tab
@@ -88,14 +92,22 @@ tests/
   segments, so prehistory is compressed and recent centuries get room. Zoom/pan
   operate on a `ViewWindow { n0, n1 }` in normalised space, never on pixels.
 - `lib/lanes.ts` greedily assigns visible events to horizontal lanes by
-  importance, dropping the least important when lanes run out.
+  importance, dropping the least important when lanes run out. `lib/ticks.ts`
+  picks the axis years for a given view and width.
+- `data/eras.ts` is the single source of era boundaries and labels, used by the
+  timeline bands *and* the list view's headings. Membership is half-open
+  (`from` inclusive, `to` exclusive), and the outer eras use `-Infinity` /
+  `Infinity` so every year lands in exactly one era.
 - `Timeline.tsx` measures its container with a `ResizeObserver`, derives
   `axisY` and `laneCount` from the height, and renders the axis/ticks/range
   bars/stems in SVG plus HTML labels on top. A `useLayoutEffect` re-clamps
   labels to the viewport using their real measured width.
-- Wheel is registered with a non-passive listener (`useEffect`) so it can
-  `preventDefault`; pointer events handle drag and pinch. Pointer capture is set
-  on the container (not a child) so it survives re-renders mid-drag.
+- `lib/useTimelineGestures.ts` owns every way of moving the view: wheel and
+  trackpad (a non-passive listener so it can `preventDefault`), one-finger drag,
+  two-finger pinch, double-click and the arrow/plus/minus keys. It mirrors the
+  current view and width into refs, because the handlers run outside React's
+  render. Pointer capture is set on the container (not a child) so it survives
+  re-renders mid-drag.
 
 ## Conventions
 

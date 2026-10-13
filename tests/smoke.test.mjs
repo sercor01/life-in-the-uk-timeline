@@ -161,7 +161,8 @@ test("list mode groups events by era", (t) =>
       els.map((e) => e.textContent),
     );
     const cards = await page.$$eval(".card", (els) => els.length);
-    assert.equal(groups.length, 5);
+    assert.equal(groups.length, 8, "expected one group per era");
+    assert.equal(groups[0], "Prehistory");
     assert.ok(cards > 0, "expected event cards");
   }));
 

@@ -1,4 +1,5 @@
 import { categoryColor } from "../data/categories";
+import { ERAS, eraOf } from "../data/eras";
 import { formatRange } from "../lib/lanes";
 import type { TimelineEvent } from "../types";
 
@@ -8,21 +9,13 @@ interface Props {
   onSelect: (event: TimelineEvent) => void;
 }
 
-const ERAS: { label: string; from: number; to: number }[] = [
-  { label: "Prehistory & Roman Britain", from: -Infinity, to: 410 },
-  { label: "Medieval England", from: 411, to: 1485 },
-  { label: "Tudors & Stuarts", from: 1486, to: 1700 },
-  { label: "Georgian & Victorian", from: 1701, to: 1901 },
-  { label: "20th century to today", from: 1902, to: Infinity },
-];
-
 export function EventListView({ events, selectedId, onSelect }: Props) {
   const sorted = [...events].sort((a, b) => a.year - b.year);
 
   return (
     <div className="list">
       {ERAS.map((era) => {
-        const inEra = sorted.filter((e) => e.year >= era.from && e.year <= era.to);
+        const inEra = sorted.filter((e) => eraOf(e.year) === era);
         if (inEra.length === 0) return null;
         return (
           <section className="list__group" key={era.label}>
