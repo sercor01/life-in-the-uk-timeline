@@ -227,7 +227,7 @@ export function Timeline({ events, view, onViewChange, selectedId, onSelect }: P
                 className={`marker${event.source === "handbook" ? " marker--handbook" : ""}`}
                 style={{ left: clampX, top: laneY, borderLeft: `3px solid ${categoryColor(event.category)}` }}
                 aria-pressed={selectedId === event.id}
-                title={`${formatRange(event)} — ${event.title}`}
+                title={`${formatRange(event)} — ${event.title}\n${event.summary}`}
                 onPointerDown={(e) => e.stopPropagation()}
                 onClick={() => onSelect(event)}
               >

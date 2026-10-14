@@ -9,7 +9,10 @@ interface Props {
 /** The − / + / Reset buttons in the corner of the timeline. */
 export function TimelineControls({ canZoomIn, canZoomOut, onZoom, onReset }: Props) {
   return (
-    <div className="timeline__controls">
+    // Stop pointer-down from reaching the timeline container: it captures the
+    // pointer for panning, which would retarget the button's click event and
+    // swallow the zoom/reset presses.
+    <div className="timeline__controls" onPointerDown={(e) => e.stopPropagation()}>
       <button
         type="button"
         className="tl-btn"

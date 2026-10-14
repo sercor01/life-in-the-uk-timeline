@@ -21,7 +21,8 @@ npm run lighthouse   # just the Lighthouse budgets (writes reports/)
   `+` / `−` buttons, or the arrow keys. A minimap at the bottom lets you jump
   anywhere.
 - **Readable without clicking**: every marker shows its year and a short title,
-  and labels stack into lanes so they never overlap.
+  hovering reveals the event's summary, and labels stack into lanes so they
+  never overlap.
 - **A piecewise time scale** so that the huge stretch of prehistory is
   compressed and the busy last thousand years get room to breathe.
 - **Range bars** for things that lasted a while (wars, reigns, booms).

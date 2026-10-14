@@ -30,7 +30,15 @@ export function useTimelineGestures({ view, width, onViewChange }: Options) {
     },
     [onViewChange],
   );
-  const zoomCentre = useCallback((factor: number) => zoomAt(factor, 0.5), [zoomAt]);
+  const zoomCentre = useCallback(
+    (factor: number) => {
+      // Anchor on the centre of the current view, not the midpoint of the whole
+      // axis: after panning, zooming must stay where the user is looking.
+      const v = viewRef.current;
+      zoomAt(factor, (v.n0 + v.n1) / 2);
+    },
+    [zoomAt],
+  );
 
   // Wheel handling needs a non-passive listener so we can prevent browser zoom.
   useEffect(() => {

@@ -102,6 +102,14 @@ tests/
   `axisY` and `laneCount` from the height, and renders the axis/ticks/range
   bars/stems in SVG plus HTML labels on top. A `useLayoutEffect` re-clamps
   labels to the viewport using their real measured width.
+- `TimelineControls.tsx` renders the − / + / Reset buttons. They sit *inside*
+  the timeline container, whose `onPointerDown` captures the pointer for panning;
+  that capture retargets the button's `click` to the container, so the wrapper
+  stops pointer-down propagation. Any new interactive overlay inside the
+  container (like the markers, which also `stopPropagation`) needs the same
+  treatment or its `onClick` will never fire on a single click. `zoomCentre`
+  anchors on the centre of the current view (not the axis midpoint) so button
+  zoom stays where the user is looking after panning.
 - `lib/useTimelineGestures.ts` owns every way of moving the view: wheel and
   trackpad (a non-passive listener so it can `preventDefault`), one-finger drag,
   two-finger pinch, double-click and the arrow/plus/minus keys. It mirrors the
