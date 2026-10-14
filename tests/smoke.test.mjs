@@ -214,7 +214,7 @@ test("population figures search, open and link to the tab", (t) =>
     await page.click(".detail__cta");
     await wait(250);
     const activeTab = await page.$eval(
-      '.tabs button[aria-selected="true"]',
+      '.tabs button[aria-current="true"]',
       (el) => el.textContent,
     );
     assert.equal(activeTab, "Population");
@@ -258,6 +258,23 @@ test("population tab fits a phone without overflow", (t) =>
     844,
   ));
 
+/**
+ * Type into the search box the way React sees it. `page.type` appends, so this
+ * is how a test replaces the query instead of adding to it.
+ */
+async function search(page, text) {
+  await page.evaluate((value) => {
+    const input = document.querySelector(".search input");
+    const set = Object.getOwnPropertyDescriptor(
+      HTMLInputElement.prototype,
+      "value",
+    ).set;
+    set.call(input, value);
+    input.dispatchEvent(new Event("input", { bubbles: true }));
+  }, text);
+  await wait(250);
+}
+
 test("phone layout does not overflow and the sheet opens", (t) =>
   withPage(
     t,
@@ -280,3 +297,168 @@ test("phone layout does not overflow and the sheet opens", (t) =>
     390,
     844,
   ));
+
+// ------------------------------------------------------- bugs that once shipped
+// Each of these pins a regression; keep them with the fix.
+
+test("a hidden category is not searchable", (t) =>
+  withPage(t, async (page) => {
+    await clickByText(page, ".legend__item", "Sport");
+    await wait(200);
+
+    // Every event whose title mentions the Olympics is a sport event, so with
+    // Sport hidden there should be nothing to pick and no ghost selection.
+    await search(page, "Olympics");
+    assert.equal(
+      await page.$$eval(".search__item", (e) => e.length),
+      0,
+      "expected no results while the category is hidden",
+    );
+    assert.match(
+      await page.$eval(".search__empty", (el) => el.textContent),
+      /No dates match/,
+    );
+
+    // A category that is still on keeps searching normally.
+    await search(page, "Magna");
+    assert.deepEqual(
+      await page.$$eval(".search__item b", (els) => els.map((e) => e.textContent)),
+      ["Magna Carta"],
+    );
+  }));
+
+test("the detail panel can be dismissed on desktop", (t) =>
+  withPage(t, async (page) => {
+    await page.click(".marker");
+    await wait(250);
+    assert.ok(
+      await page.$eval(".detail__close", (el) => getComputedStyle(el).display !== "none"),
+      "expected a visible close button on desktop",
+    );
+    assert.equal(
+      await page.$eval(".detail", (el) => getComputedStyle(el).position),
+      "relative",
+      "expected the panel to be a positioning context",
+    );
+    // Read the rects as plain values: a DOMRect does not survive serialisation.
+    const geom = await page.evaluate(() => {
+      const btn = document.querySelector(".detail__close").getBoundingClientRect();
+      const panel = document.querySelector(".detail").getBoundingClientRect();
+      const title = document.querySelector(".detail h2").getBoundingClientRect();
+      return {
+        btn: { top: btn.top, right: btn.right, bottom: btn.bottom },
+        panel: { top: panel.top, right: panel.right },
+        title: { top: title.top, right: title.right },
+      };
+    });
+    assert.ok(
+      geom.btn.top >= geom.panel.top - 1 && geom.btn.right <= geom.panel.right + 1,
+      "expected the close button inside the panel",
+    );
+    assert.ok(
+      !(geom.title.top < geom.btn.bottom && geom.title.right > geom.btn.right - 32),
+      "expected the close button not to cover the heading",
+    );
+
+    await page.click(".detail__close");
+    await wait(250);
+    assert.ok(await page.$(".detail--empty"), "expected the empty state back");
+    assert.equal(
+      await page.$eval(".detail h2", (el) => el.textContent),
+      "Pick a date",
+    );
+  }));
+
+test("Tabbing out of the search box does not drop focus", (t) =>
+  withPage(t, async (page) => {
+    await page.type(".search input", "magna");
+    await wait(250);
+    assert.equal(await page.$$eval(".search__item", (e) => e.length), 1);
+
+    await page.keyboard.press("Tab");
+    await wait(400); // longer than the old 150ms close delay
+
+    const focus = await page.evaluate(() => {
+      const el = document.activeElement;
+      return {
+        isBody: el === document.body,
+        tag: el?.tagName ?? "",
+        focusable: el?.tabIndex >= 0 || ["BUTTON", "INPUT", "A"].includes(el?.tagName),
+        listStillOpen: document.querySelector(".search__pop")?.hasAttribute("hidden") === false,
+      };
+    });
+    assert.equal(focus.isBody, false, "focus must not fall back to the document body");
+    assert.ok(focus.focusable, `expected a focusable element, got "${focus.tag}"`);
+  }));
+
+test("arrow keys move the search cursor and Enter picks it", (t) =>
+  withPage(t, async (page) => {
+    await page.type(".search input", "London");
+    await wait(250);
+    // Expect the results from the data, not a hardcoded count: the query also
+    // matches "Great Fire of London".
+    const options = await page.$$eval('[role="option"]', (els) =>
+      els.map((el) => ({ id: el.id, label: el.querySelector("b").textContent })),
+    );
+    assert.ok(options.length >= 2, "expected at least two results");
+    assert.deepEqual(
+      await page.$$eval('[role="option"]', (els) =>
+        els.map((el) => el.getAttribute("role")),
+      ),
+      options.map(() => "option"),
+    );
+
+    await page.keyboard.press("ArrowDown");
+    await page.keyboard.press("ArrowDown");
+    await wait(150);
+
+    const cursor = await page.evaluate(() => {
+      const input = document.querySelector(".search input");
+      const marked = [...document.querySelectorAll('[role="option"]')].filter(
+        (o) => o.getAttribute("aria-selected") === "true",
+      );
+      return {
+        expanded: input.getAttribute("aria-expanded"),
+        activedescendant: input.getAttribute("aria-activedescendant"),
+        selected: marked.map((o) => o.querySelector("b").textContent),
+      };
+    });
+    assert.equal(cursor.expanded, "true");
+    assert.deepEqual(cursor.selected, [options[1].label]);
+    assert.equal(cursor.activedescendant, options[1].id);
+
+    await page.keyboard.press("Enter");
+    await wait(300);
+    assert.equal(
+      await page.$eval(".detail h2", (el) => el.textContent),
+      options[1].label,
+    );
+  }));
+
+test("the view switcher uses aria-current rather than a tablist", (t) =>
+  withPage(t, async (page) => {
+    // Halving the ARIA tabs pattern makes it wrong, not accessible: the panels
+    // are not tabpanels and there is no roving tabindex.
+    assert.equal(await page.$('[role="tablist"]'), null, "expected no tablist");
+    assert.equal(await page.$('[role="tab"]'), null, "expected no tab roles");
+
+    await clickByText(page, ".tabs button", "Population");
+    await wait(250);
+    const state = await page.evaluate(() => {
+      const current = document.querySelector('.tabs button[aria-current="true"]');
+      const others = [...document.querySelectorAll(".tabs button")].filter(
+        (b) => b !== current,
+      );
+      return {
+        current: current?.textContent,
+        othersMarked: others.some((b) => b.hasAttribute("aria-current")),
+        othersStyled: others.some(
+          (b) => getComputedStyle(b).boxShadow !== "none",
+        ),
+      };
+    });
+    assert.equal(state.current, "Population");
+    assert.equal(state.othersMarked, false, "only the active tab may be marked");
+    assert.equal(state.othersStyled, false, "inactive tabs must not look selected");
+  }));
+

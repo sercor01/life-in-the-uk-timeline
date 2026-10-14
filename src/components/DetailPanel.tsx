@@ -44,22 +44,24 @@ export function DetailPanel({ selection, onClose, onOpenPopulation }: Props) {
 
   return (
     <aside className="detail" aria-label="Event details">
-      <button type="button" className="detail__close" onClick={onClose} aria-label="Close">
-        ✕
-      </button>
+      <div className="detail__top">
+        <span
+          className="detail__eyebrow"
+          style={{ background: categoryTint(category.id), color: categoryInk(category.id) }}
+        >
+          <span className="marker__dot" style={{ background: categoryColor(category.id) }} />
+          {category.label}
+          {source && (
+            <span className="detail__eyebrow-tag">
+              · {source === "exam" ? "from exam" : "handbook"}
+            </span>
+          )}
+        </span>
 
-      <span
-        className="detail__eyebrow"
-        style={{ background: categoryTint(category.id), color: categoryInk(category.id) }}
-      >
-        <span className="marker__dot" style={{ background: categoryColor(category.id) }} />
-        {category.label}
-        {source && (
-          <span className="detail__eyebrow-tag">
-            · {source === "exam" ? "from exam" : "handbook"}
-          </span>
-        )}
-      </span>
+        <button type="button" className="detail__close" onClick={onClose} aria-label="Close">
+          ✕
+        </button>
+      </div>
 
       <h2>{event.title}</h2>
       <div className="detail__date">{dateLine}</div>

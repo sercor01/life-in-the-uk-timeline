@@ -78,8 +78,8 @@ tests/
   events render with a dashed border and an `hb` badge.
 - `AnnualEvent` has `month`/`day` and an optional `movable` for feasts without a
   fixed date.
-- The population figures live in `data/population.ts` (one table) and are mapped
-  into `handbook` timeline events in `events.ts`, so the numbers are not
+- The population figures live in `src/data/population.ts` (one table) and are
+  mapped into `handbook` timeline events in `events.ts`, so the numbers are not
   duplicated. `POPULATION_MAX_MILLIONS` is the shared chart/bar scale.
 - Categories live in one place (`categories.ts`); the colour *values* are CSS
   custom properties (`--c-<id>`, `--c-<id>-tint`, `--c-<id>-ink`) defined per
@@ -103,13 +103,16 @@ tests/
   bars/stems in SVG plus HTML labels on top. A `useLayoutEffect` re-clamps
   labels to the viewport using their real measured width.
 - `TimelineControls.tsx` renders the − / + / Reset buttons. They sit *inside*
-  the timeline container, whose `onPointerDown` captures the pointer for panning;
-  that capture retargets the button's `click` to the container, so the wrapper
-  stops pointer-down propagation. Any new interactive overlay inside the
-  container (like the markers, which also `stopPropagation`) needs the same
-  treatment or its `onClick` will never fire on a single click. `zoomCentre`
-  anchors on the centre of the current view (not the axis midpoint) so button
-  zoom stays where the user is looking after panning.
+  the timeline container, whose `onPointerDown` calls `setPointerCapture` on
+  itself so a drag that wanders outside still pans. Do **not** add
+  `stopPropagation` to a wrapper to "protect" them: pointer capture re-targets
+  `pointermove`/`pointerup`, but Chrome still dispatches `click` at the
+  hit-tested pointerup target, so the buttons fire normally without it.
+  (Verified with both a mouse and a real touch tap.) The markers' `onPointerDown`
+  `stopPropagation` is there for a different reason: it stops a drag that
+  *starts on a marker* from panning the timeline. `zoomCentre` anchors on the
+  centre of the current view (not the axis midpoint) so button zoom stays
+  where the user is looking after panning.
 - `lib/useTimelineGestures.ts` owns every way of moving the view: wheel and
   trackpad (a non-passive listener so it can `preventDefault`), one-finger drag,
   two-finger pinch, double-click and the arrow/plus/minus keys. It mirrors the
@@ -133,6 +136,24 @@ tests/
 - Mobile is first-class: the detail panel becomes an overlay bottom sheet below
   `880px`, and interactions must work with touch.
 
+**Accessibility patterns — keep these whole, do not half-build one:**
+
+- The header view switcher is a plain `role="group"` of buttons marked with
+  `aria-current="true"`. It is deliberately *not* a `role="tablist"`: the swap
+  targets are not tabpanels and there is no roving tabindex, so a tablist would
+  be half a pattern and mislead screen readers.
+- The search box is a full ARIA combobox. The popover is **always mounted** and
+  shown/hidden with the `hidden` attribute, so `aria-controls` always resolves
+  and blur can never unmount a focused element (closing on an unmount used to
+  drop focus onto `<body>`). Options are `<li role="option">` and are
+  deliberately not tabbable — keyboard users drive them with ArrowUp/ArrowDown
+  and Enter, and Escape closes. The index is filtered by the active legend
+  categories, so a result can never point at an event the timeline is not
+  showing.
+- The detail panel's close button lives in `.detail__top`, a flex row it shares
+  with the category chip, so it can never cover the heading. `.detail` is
+  `position: relative` so any future absolutely-positioned child stays inside it.
+
 ## Testing
 
 `npm test` builds the app and runs four headless-browser suites with
@@ -145,12 +166,13 @@ tests/
   in both the light and dark themes and asserts every text pair is >= 4.5:1 and
   every graphic/axis/focus pair is >= 3:1 (WCAG AA). Checks the *tokens*;
   includes text over the era bands, which axe cannot measure.
-- `tests/axe.test.mjs` (port `4320`) — runs axe-core against 8 rendered states
-  (timeline, list, annual, population and a hidden category, several with a
-  detail panel open) across both themes and desktop/phone, for WCAG 2.0/2.1/2.2
-  A + AA. Checks the *rendered screens*; catches things the token test cannot,
-  e.g. text dimmed with opacity. Contrast results axe leaves undecided (gradient
-  backgrounds) are only logged, since `contrast.test.mjs` covers them.
+- `tests/axe.test.mjs` (port `4320`) — runs axe-core against 9 rendered states
+  (timeline, list, annual, population, a hidden category, several with a
+  detail panel open, and one with the search popover open) across both themes
+  and desktop/phone, for WCAG 2.0/2.1/2.2 A + AA. Checks the *rendered
+  screens*; catches things the token test cannot, e.g. text dimmed with opacity.
+  Contrast results axe leaves undecided (gradient backgrounds) are only logged,
+  since `contrast.test.mjs` covers them.
 - `tests/lighthouse.test.mjs` (port `4319`) — runs Lighthouse on the production
   build for mobile and desktop, **in both light and dark themes** (the colour
   scheme is forced via Blink and verified with `matchMedia`), 3 runs each, and

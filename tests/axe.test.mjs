@@ -53,6 +53,15 @@ const STATES = [
     name: "population",
     go: (page) => clickByText(page, ".tabs button", "Population"),
   },
+  // The combobox markup only exists while the popover is open, so it needs its
+  // own state — this is what guards the search results' ARIA.
+  {
+    name: "search results open",
+    go: async (page) => {
+      await page.type(".search input", "magn");
+      await wait(300);
+    },
+  },
   {
     name: "a category hidden",
     go: (page) => clickByText(page, ".legend__item", "Sport"),

@@ -245,7 +245,7 @@ button {
   color: var(--muted);
 }
 
-.tabs button[aria-selected="true"] {
+.tabs button[aria-current="true"] {
   background: var(--panel);
   color: var(--ink);
   box-shadow: var(--shadow);
@@ -291,22 +291,43 @@ button {
   pointer-events: none;
 }
 
-.search__results {
+/* The popover is always mounted (so aria-controls has a real target) but
+   hidden while collapsed. */
+.search__pop {
   position: absolute;
   top: calc(100% + 6px);
   left: 0;
   right: 0;
+  z-index: 40;
+}
+
+.search__pop[hidden] {
+  display: none;
+}
+
+.search__results,
+.search__empty {
   background: var(--panel);
   border: 1px solid var(--line);
   border-radius: 12px;
   box-shadow: var(--shadow);
+}
+
+.search__results {
   max-height: 340px;
   overflow: auto;
-  z-index: 40;
   padding: 4px;
+  margin: 0;
+  list-style: none;
+}
+
+/* Nothing to show: don't draw an empty shell around the "no matches" line. */
+.search__results:empty {
+  display: none;
 }
 
 .search__empty {
+  margin: 0;
   padding: 12px;
   color: var(--muted);
   font-size: 13px;
@@ -318,15 +339,20 @@ button {
   gap: 10px;
   width: 100%;
   text-align: left;
-  border: 0;
-  background: transparent;
   padding: 9px 10px;
   border-radius: 8px;
+  cursor: pointer;
+  list-style: none;
 }
 
-.search__item:hover,
-.search__item:focus-visible {
+.search__item:hover {
   background: var(--bg);
+}
+
+/* The option the keyboard cursor is on. Keyboard focus stays in the input, so
+   this highlight plus aria-activedescendant is what the user follows. */
+.search__item[aria-selected="true"] {
+  background: var(--accent-soft);
 }
 
 .search__dot {
@@ -585,6 +611,10 @@ button {
   overflow: auto;
   padding: 20px 20px 40px;
   z-index: 15;
+  /* The close button is laid out in flow (see .detail__top), but keep this so
+     any future absolute child stays inside the panel rather than escaping to
+     .app__body. */
+  position: relative;
 }
 
 .detail--empty {
@@ -611,17 +641,31 @@ button {
   margin: 0;
 }
 
+/* Category chip and close button share the top row, so the button can never
+   sit on top of the heading (it used to, in the mobile sheet). */
+.detail__top {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 10px;
+  margin-bottom: 12px;
+}
+
 .detail__close {
-  position: absolute;
-  top: 12px;
-  right: 14px;
+  flex: none;
   border: 0;
   background: var(--bg);
   width: 32px;
   height: 32px;
   border-radius: 8px;
   font-size: 18px;
-  display: none;
+  display: grid;
+  place-items: center;
+}
+
+.detail__close:hover {
+  border-color: var(--accent);
+  color: var(--accent);
 }
 
 .detail__eyebrow {
@@ -632,7 +676,7 @@ button {
   font-weight: 600;
   padding: 3px 10px;
   border-radius: 999px;
-  margin-bottom: 12px;
+  min-width: 0;
 }
 
 /*
@@ -1250,11 +1294,6 @@ button {
 
   .detail--empty {
     display: none;
-  }
-
-  .detail__close {
-    display: grid;
-    place-items: center;
   }
 
   .marker {

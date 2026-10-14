@@ -125,6 +125,10 @@ function auditTheme(scheme, tokens) {
   check("focus ring on panel", tokens.focus, tokens.panel, 3);
   check("accent text on accent-soft", tokens.accent, tokens["accent-soft"], 4.5);
 
+  // The highlighted search result: text sits on the accent-soft background.
+  check("ink on accent-soft", tokens.ink, tokens["accent-soft"], 4.5);
+  check("muted on accent-soft", tokens.muted, tokens["accent-soft"], 4.5);
+
   // The axis and tick/era labels sit on the timeline, over the era bands.
   for (const era of ERAS) {
     const band = tokens[`era-${era}`];

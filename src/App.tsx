@@ -98,12 +98,17 @@ export default function App() {
           Life in the UK <small>dates to memorise</small>
         </div>
 
-        <div className="tabs" role="tablist" aria-label="View">
+        {/*
+          A plain group of buttons with aria-current, not a tablist: the panels
+          are not real tabpanels and the ARIA tabs pattern would only be half
+          implemented (no tabpanel, no roving tabindex, no arrow keys).
+        */}
+        <div className="tabs" role="group" aria-label="View">
           {TABS.map((t) => (
             <button
               key={t.id}
-              role="tab"
-              aria-selected={tab === t.id}
+              type="button"
+              aria-current={tab === t.id ? "true" : undefined}
               onClick={() => setTab(t.id)}
             >
               {t.label}
@@ -123,7 +128,12 @@ export default function App() {
 
         <div className="app__spacer" />
 
-        <SearchBar query={query} onQueryChange={setQuery} onPick={handlePick} />
+        <SearchBar
+          active={active}
+          query={query}
+          onQueryChange={setQuery}
+          onPick={handlePick}
+        />
       </header>
 
       <main className="app__body">
