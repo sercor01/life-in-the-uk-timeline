@@ -73,6 +73,20 @@ To add an event, append to `src/data/events.ts`. To point at a question, use
   best-practices and SEO ≥ 0.95, plus LCP, CLS and TBT limits. Reports land in
   `reports/`.
 
+## Security posture
+
+`index.html` carries a strict `<meta http-equiv="Content-Security-Policy">` and
+a `Referrer-Policy` meta, because GitHub Pages cannot set response headers. The
+build has no inline scripts and no `eval`, so `script-src 'self'` is enough;
+`img-src` allows `data:` only for the inline SVG favicon. `frame-ancestors` is
+deliberately omitted — it is ignored in a meta CSP and only logs a console
+error. A smoke test asserts the policy is present and that nothing it would
+block actually happens.
+
+Note that the test harness loads axe-core by evaluating its source through CDP
+rather than `addScriptTag`: an injected `<script>` tag is an inline script,
+which this CSP blocks, and `addScriptTag` fails silently when that happens.
+
 ## Data notes
 
 Most events are drawn from your `exams.json`. A handful are filled in from the

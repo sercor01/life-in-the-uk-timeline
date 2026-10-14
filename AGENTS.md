@@ -153,6 +153,15 @@ tests/
 - The detail panel's close button lives in `.detail__top`, a flex row it shares
   with the category chip, so it can never cover the heading. `.detail` is
   `position: relative` so any future absolutely-positioned child stays inside it.
+- **Security**: `index.html` carries a strict
+  `<meta http-equiv="Content-Security-Policy">` (there are no inline scripts and
+  no `eval`, so `script-src 'self'` is enough) and a `Referrer-Policy` meta —
+  GitHub Pages cannot set response headers, so a meta tag is the only lever
+  available. `frame-ancestors` is *ignored* in a meta CSP, so do not add it; it
+  only logs a console error. A smoke test asserts the meta is present.
+  `addScriptTag` cannot be used to load test scripts into the page (an injected
+  tag is an inline script, which this policy blocks, and it fails *silently*) —
+  evaluate the source through `page.evaluate` instead.
 
 ## Testing
 

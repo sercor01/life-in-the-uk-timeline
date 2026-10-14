@@ -301,6 +301,54 @@ test("phone layout does not overflow and the sheet opens", (t) =>
 // ------------------------------------------------------- bugs that once shipped
 // Each of these pins a regression; keep them with the fix.
 
+test("the page ships a strict Content-Security-Policy", (t) =>
+  withPage(t, async (page) => {
+    const policy = await page.$eval(
+      'meta[http-equiv="Content-Security-Policy"]',
+      (el) => el.content,
+    );
+    // No inline scripts and no eval exist, so 'self' alone has to be enough.
+    for (const directive of [
+      "default-src 'self'",
+      "script-src 'self'",
+      "style-src 'self'",
+      "img-src 'self' data:",
+      "object-src 'none'",
+      "base-uri 'none'",
+    ]) {
+      assert.ok(
+        policy.includes(directive),
+        `missing ${directive} in: ${policy}`,
+      );
+    }
+    // Ignored in a meta tag, and it logs a console error, so it must not be there.
+    assert.ok(!policy.includes("frame-ancestors"), "frame-ancestors is ignored in a meta CSP");
+
+    // Record violations inside the page: the browser fires
+    // securitypolicyviolation on the document, it is not a CDP page event.
+    await page.evaluate(() => {
+      window.__csp = [];
+      document.addEventListener("securitypolicyviolation", (e) => {
+        window.__csp.push(`${e.effectiveDirective}: ${e.blockedURI}`);
+      });
+    });
+
+    // Exercise the screens that a policy could break: React sets inline styles
+    // on the detail panel, and the favicon is a data: URI.
+    await page.click(".marker");
+    await wait(250);
+    await clickByText(page, ".tabs button", "Population");
+    await wait(250);
+    await clickByText(page, ".tabs button", "Timeline");
+    await wait(250);
+
+    assert.deepEqual(
+      await page.evaluate(() => window.__csp),
+      [],
+      "the policy must not block anything the app does",
+    );
+  }));
+
 test("a hidden category is not searchable", (t) =>
   withPage(t, async (page) => {
     await clickByText(page, ".legend__item", "Sport");

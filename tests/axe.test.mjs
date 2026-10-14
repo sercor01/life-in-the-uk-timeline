@@ -1,3 +1,4 @@
+import { readFileSync } from "node:fs";
 import { after, before, test } from "node:test";
 import assert from "node:assert/strict";
 import { createRequire } from "node:module";
@@ -5,6 +6,7 @@ import { SKIP_CHROME, clickByText, launchBrowser, startPreview, wait } from "./h
 
 const require = createRequire(import.meta.url);
 const AXE_PATH = require.resolve("axe-core/axe.min.js");
+const AXE_SOURCE = readFileSync(AXE_PATH, "utf8");
 
 const PORT = 4320;
 
@@ -100,7 +102,12 @@ async function audit(theme, viewport, state) {
     await wait(300);
     await state.go(page);
     await wait(300);
-    await page.addScriptTag({ path: AXE_PATH });
+    // Evaluate axe's source rather than addScriptTag: an injected <script> tag
+    // is an inline script, which the app's CSP blocks, and addScriptTag fails
+    // silently when it is. CDP evaluation is not subject to the CSP.
+    await page.evaluate(AXE_SOURCE);
+    const loaded = await page.evaluate(() => typeof globalThis.axe === "object");
+    assert.ok(loaded, "axe-core did not load into the page (check the CSP)");
     return await page.evaluate(
       (tags) => globalThis.axe.run(document, { runOnly: { type: "tag", values: tags } }),
       TAGS,
