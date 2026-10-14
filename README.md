@@ -87,6 +87,22 @@ Note that the test harness loads axe-core by evaluating its source through CDP
 rather than `addScriptTag`: an injected `<script>` tag is an inline script,
 which this CSP blocks, and `addScriptTag` fails silently when that happens.
 
+## CI
+
+Two workflows, plus Dependabot for weekly dependency and action updates:
+
+- **`ci.yml`** runs on every pull request, and `deploy.yml` calls it on every
+  push to `main`, so a deploy cannot happen without it. It has two parallel
+  jobs: `verify` (typecheck, build, `npm audit --omit=dev` — a hard gate on what
+  actually ships) and `suites` (a full `npm test`). The dev-only advisories in
+  vite, puppeteer-core and lighthouse are reported but non-blocking until the
+  majors are upgraded; flip `continue-on-error` to `false` at that point.
+- **`deploy.yml`** builds with `PAGES_BASE` and publishes to GitHub Pages, and
+  now `needs` the CI job.
+
+Chrome is resolved up front in the `suites` job so a runner without it fails
+loudly instead of silently skipping every test.
+
 ## Data notes
 
 Most events are drawn from your `exams.json`. A handful are filled in from the

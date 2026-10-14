@@ -15,7 +15,14 @@ concurrency:
   cancel-in-progress: false
 
 jobs:
+  # The tests gate the deploy: typecheck, build, dependency audits and all four
+  # browser suites, shared with the pull_request run via the reusable workflow.
+  # A push to main therefore gets exactly one CI run, and redeploys cannot skip it.
+  test:
+    uses: ./.github/workflows/ci.yml
+
   build:
+    needs: test
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
@@ -31,14 +38,14 @@ jobs:
         env:
           PAGES_BASE: /${{ github.event.repository.name }}/
 
-      - uses: actions/configure-pages@v5
+      - uses: configure-pages@v5
 
-      - uses: actions/upload-pages-artifact@v3
+      - uses: upload-pages-artifact@v3
         with:
           path: ./dist
 
   deploy:
-    needs: build
+    needs: [test, build]
     runs-on: ubuntu-latest
     environment:
       name: github-pages

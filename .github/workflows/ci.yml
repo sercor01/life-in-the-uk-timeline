@@ -1,0 +1,86 @@
+name: CI
+
+# Runs directly on pull requests, and deploy.yml calls it on push to main so a
+# deploy cannot happen without it. It deliberately has no `push` trigger of its
+# own: main already gets exactly one run through deploy.yml, and a second one
+# would only duplicate the work.
+on:
+  pull_request:
+  workflow_call:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: ci-${{ github.ref }}
+  # Only cancel in-flight runs for pull requests, where a new push supersedes
+  # the old one. A push to main must never cancel the run that deploy.yml is
+  # waiting on, so this stays false there.
+  cancel-in-progress: ${{ github.event_name == 'pull_request' }}
+
+jobs:
+  # Fast, no browser needed: types, build, dependency audit.
+  verify:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: npm
+
+      - run: npm ci
+
+      - name: Typecheck
+        run: npm run typecheck
+
+      - name: Build
+        run: npm run build
+
+      # What actually ships to users: react and react-dom only, and they are
+      # clean. This one gates the build.
+      - name: Audit production dependencies
+        run: npm audit --omit=dev --audit-level=moderate
+
+      # Development dependencies have known advisories (vite, puppeteer-core,
+      # lighthouse). None reach the bundle, but they are visible rather than
+      # hidden, and this goes hard once the majors are upgraded.
+      - name: Audit all dependencies
+        continue-on-error: true
+        run: npm audit --audit-level=moderate
+
+  # The four headless-browser suites: build + smoke, contrast, axe, Lighthouse.
+  suites:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: npm
+
+      - run: npm ci
+
+      # The suites need a browser; the ubuntu image ships Chrome. Resolve it
+      # up front so a runner without it fails with a clear message instead of
+      # silently skipping every test.
+      - name: Locate Chrome
+        run: |
+          for bin in /usr/bin/google-chrome-stable /usr/bin/google-chrome /usr/bin/chromium /usr/bin/chromium-browser; do
+            if [ -x "$bin" ]; then
+              echo "CHROME_PATH=$bin" >> "$GITHUB_ENV"
+              echo "Found $bin"
+              exit 0
+            fi
+          done
+          if [ -n "$CHROME_PATH" ]; then exit 0; fi
+          echo "::error::No Chrome/Chromium on PATH. Set the CHROME_PATH environment variable."
+          exit 1
+
+      # `npm test` builds first, then runs smoke + contrast + axe + Lighthouse.
+      # Don't pipe through tail/grep here: that would swallow the exit code and
+      # gate nothing.
+      - name: Test suites
+        run: npm test
