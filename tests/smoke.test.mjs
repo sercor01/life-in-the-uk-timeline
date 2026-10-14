@@ -153,6 +153,66 @@ test("hiding a category removes its events", (t) =>
     assert.ok(after < before, `expected fewer ticks (${before} -> ${after})`);
   }));
 
+test("a modifier click on a legend chip isolates one category", (t) =>
+  withPage(t, async (page) => {
+    const isolate = (category) =>
+      page.evaluate((id) => {
+        const el = document.querySelector(`.legend__item[data-category="${id}"]`);
+        if (!el) throw new Error(`no chip for ${id}`);
+        el.dispatchEvent(new MouseEvent("click", { bubbles: true, metaKey: true }));
+      }, category);
+
+    await isolate("sport");
+    await wait(200);
+
+    const pressed = await page.$$eval(".legend__item", (els) =>
+      els
+        .filter((e) => e.getAttribute("aria-pressed") === "true")
+        .map((e) => e.getAttribute("data-category")),
+    );
+    assert.deepEqual(pressed, ["sport"], "expected only the isolated category on");
+
+    // The timeline is filtered too, not just the chips.
+    const tickColours = await page.$$eval(".overview__tick", (els) => [
+      ...new Set(els.map((e) => e.style.background)),
+    ]);
+    assert.deepEqual(tickColours, ["var(--c-sport)"]);
+
+    // Isolating again restores every category.
+    await isolate("sport");
+    await wait(200);
+    const restored = await page.$$eval(
+      ".legend__item",
+      (els) => els.filter((e) => e.getAttribute("aria-pressed") === "true").length,
+    );
+    assert.equal(restored, 9, "expected every category back on");
+  }));
+
+test("hovering a legend chip dims the other categories", (t) =>
+  withPage(t, async (page) => {
+    await page.hover('.legend__item[data-category="war"]');
+    await wait(150);
+
+    const lit = await page.evaluate(() => ({
+      markers: document.querySelectorAll(".marker").length,
+      muted: document.querySelectorAll(".marker--muted").length,
+      mutedTicks: [...document.querySelectorAll(".overview__tick")].filter(
+        (e) => e.style.background === "var(--faint)",
+      ).length,
+    }));
+    assert.ok(lit.markers > 0, "expected markers on the timeline");
+    assert.ok(lit.muted > 0, "expected the other categories dimmed");
+    assert.ok(lit.muted < lit.markers, "expected the hovered category left lit");
+    assert.ok(lit.mutedTicks > 0, "expected dimmed ticks in the overview");
+
+    await page.mouse.move(4, 4);
+    await wait(150);
+    const after = await page.evaluate(
+      () => document.querySelectorAll(".marker--muted").length,
+    );
+    assert.equal(after, 0, "expected the dimming to clear when the pointer leaves");
+  }));
+
 test("list mode groups events by era", (t) =>
   withPage(t, async (page) => {
     await clickByText(page, ".mode-toggle button", "List");

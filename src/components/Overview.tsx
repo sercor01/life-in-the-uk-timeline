@@ -1,15 +1,17 @@
 import { useRef } from "react";
 import { categoryColor } from "../data/categories";
-import type { TimelineEvent } from "../types";
+import type { CategoryId, TimelineEvent } from "../types";
 import { clampView, toNorm, type ViewWindow } from "../lib/scale";
 
 interface Props {
   events: TimelineEvent[];
   view: ViewWindow;
   onChange: (view: ViewWindow) => void;
+  /** Category to emphasise; every other category is dimmed while it is set. */
+  highlight: CategoryId | null;
 }
 
-export function Overview({ events, view, onChange }: Props) {
+export function Overview({ events, view, onChange, highlight }: Props) {
   const trackRef = useRef<HTMLDivElement>(null);
   const drag = useRef<{ startX: number; n0: number; span: number } | null>(null);
 
@@ -62,7 +64,10 @@ export function Overview({ events, view, onChange }: Props) {
               className="overview__tick"
               style={{
                 left: `${toNorm(event.year) * 100}%`,
-                background: categoryColor(event.category),
+                background:
+                  highlight !== null && highlight !== event.category
+                    ? "var(--faint)"
+                    : categoryColor(event.category),
                 opacity: event.importance === 3 ? 1 : event.importance === 2 ? 0.85 : 0.7,
                 top: event.importance === 3 ? 4 : 8,
                 height: event.importance === 3 ? 18 : 10,

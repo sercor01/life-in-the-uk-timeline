@@ -31,7 +31,7 @@ data/exams.json          # source quiz data (do not edit unless asked)
 public/robots.txt        # needed for the Lighthouse SEO audit to pass
 reports/                 # Lighthouse HTML/JSON output (gitignored)
 src/
-  App.tsx                # top-level state: tab, view, selection, filters, query
+  App.tsx                # top-level state: tab, view, selection, filters, query, highlight
   types.ts               # TimelineEvent, AnnualEvent, Category, Selection, ExamRef
   data/
     events.ts            # curated historical events (the main content)
@@ -55,7 +55,7 @@ src/
     CalendarView.tsx     # annual dates tab
     PopulationView.tsx   # population tab (chart, figures, nations)
     PopulationChart.tsx  # decorative area chart for the population tab
-    Legend.tsx           # category filter
+    Legend.tsx           # category filter: toggle / isolate / hover highlight
     SearchBar.tsx        # search + jump
   index.css              # all styles (single stylesheet, CSS variables)
 tests/
@@ -135,6 +135,15 @@ tests/
 - Keep components presentational and the data/logic in `data/` and `lib/`.
 - Mobile is first-class: the detail panel becomes an overlay bottom sheet below
   `880px`, and interactions must work with touch.
+- **Legend / category filtering**: a chip click toggles one category; a
+  Cmd/Ctrl-click — or Shift-click, and Shift+Enter from the keyboard, so the
+  gesture has a keyboard route — isolates it, showing only that one, and
+  repeating it restores everything. Hovering a chip sets `highlight` in
+  `App.tsx`, which `Timeline` uses to dim every *other* category: HTML markers,
+  SVG stems, range bars and the minimap ticks. The dim uses a solid grey
+  (`--faint` / `--muted`), never `opacity`, so contrast stays at AA. Hovering a
+  *hidden* chip does nothing, and the hover cue is mouse-only (checked with
+  `pointerType`) so a touch tap cannot leave the timeline stuck dimmed.
 
 **Accessibility patterns — keep these whole, do not half-build one:**
 
@@ -169,8 +178,9 @@ tests/
 `node:test`, against the production build served by `vite preview`:
 
 - `tests/smoke.test.mjs` (port `4317`) — rendering, zoom, pan, search, category
-  filtering, list mode, the annual and population tabs and a phone viewport (no
-  horizontal overflow, bottom sheet opens). Uses `puppeteer-core`.
+  filtering (including the isolate gesture and the hover highlight), list mode,
+  the annual and population tabs and a phone viewport (no horizontal overflow,
+  bottom sheet opens). Uses `puppeteer-core`.
 - `tests/contrast.test.mjs` (port `4318`) — reads the real CSS custom properties
   in both the light and dark themes and asserts every text pair is >= 4.5:1 and
   every graphic/axis/focus pair is >= 3:1 (WCAG AA). Checks the *tokens*;

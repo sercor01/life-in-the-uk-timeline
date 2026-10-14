@@ -497,6 +497,20 @@ button {
   border-style: dashed;
 }
 
+/*
+ * While a legend chip is highlighted, the other categories fade back. The
+ * accents (border, dot, stems, minimap ticks) drop to a solid grey rather than
+ * using opacity, so nothing falls below AA contrast.
+ */
+.marker--muted {
+  color: var(--muted);
+  box-shadow: none;
+}
+
+.marker--muted .marker__title {
+  color: var(--faint);
+}
+
 /* controls */
 .timeline__controls {
   position: absolute;
@@ -833,6 +847,10 @@ button {
 
 .legend__item[aria-pressed="false"] {
   color: var(--faint);
+}
+
+.legend__item:hover {
+  background: var(--bg);
 }
 
 /* Off state is shown with a hollow swatch rather than low opacity, so the

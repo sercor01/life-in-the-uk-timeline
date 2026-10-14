@@ -13,7 +13,7 @@ import {
 } from "../lib/scale";
 import { computeTicks } from "../lib/ticks";
 import { useTimelineGestures } from "../lib/useTimelineGestures";
-import type { TimelineEvent } from "../types";
+import type { CategoryId, TimelineEvent } from "../types";
 import { Overview } from "./Overview";
 import { TimelineControls } from "./TimelineControls";
 
@@ -22,6 +22,8 @@ interface Props {
   view: ViewWindow;
   onViewChange: (view: ViewWindow) => void;
   selectedId?: string;
+  /** Category to emphasise; every other category is dimmed while it is set. */
+  highlight: CategoryId | null;
   onSelect: (event: TimelineEvent) => void;
 }
 
@@ -29,10 +31,24 @@ const LANE_SPACING = 32;
 const LANE_OFFSET = 26;
 const MAX_LANES = 7;
 
-export function Timeline({ events, view, onViewChange, selectedId, onSelect }: Props) {
+export function Timeline({
+  events,
+  view,
+  onViewChange,
+  selectedId,
+  highlight,
+  onSelect,
+}: Props) {
   const labelsRef = useRef<HTMLDivElement>(null);
   const [size, setSize] = useState({ width: 0, height: 0 });
   const { width, height } = size;
+
+  /** True for the categories to fade back while another is highlighted. */
+  const dimmed = (category: CategoryId) =>
+    highlight !== null && highlight !== category;
+  /** Colour for a category's graphics, greyed out when it is not highlighted. */
+  const tint = (category: CategoryId) =>
+    dimmed(category) ? "var(--faint)" : categoryColor(category);
 
   const { containerRef, grabbing, zoomCentre, handlers } = useTimelineGestures({
     view,
@@ -176,7 +192,7 @@ export function Timeline({ events, view, onViewChange, selectedId, onSelect }: P
                 width={Math.max(4, right - left)}
                 height={8}
                 rx={4}
-                fill={categoryColor(event.category)}
+                fill={tint(event.category)}
                 opacity={selectedId === event.id ? 0.85 : 0.5}
               />
             );
@@ -207,11 +223,11 @@ export function Timeline({ events, view, onViewChange, selectedId, onSelect }: P
                   y1={axisY}
                   x2={clampX}
                   y2={laneY + 4}
-                  stroke={categoryColor(event.category)}
+                  stroke={tint(event.category)}
                   strokeWidth={1.5}
                   opacity={0.55}
                 />
-                <circle cx={x} cy={axisY} r={selectedId === event.id ? 6 : 4.5} fill={categoryColor(event.category)} />
+                <circle cx={x} cy={axisY} r={selectedId === event.id ? 6 : 4.5} fill={tint(event.category)} />
               </g>
             );
           })}
@@ -224,14 +240,16 @@ export function Timeline({ events, view, onViewChange, selectedId, onSelect }: P
               <button
                 key={event.id}
                 type="button"
-                className={`marker${event.source === "handbook" ? " marker--handbook" : ""}`}
-                style={{ left: clampX, top: laneY, borderLeft: `3px solid ${categoryColor(event.category)}` }}
+                className={`marker${event.source === "handbook" ? " marker--handbook" : ""}${
+                  dimmed(event.category) ? " marker--muted" : ""
+                }`}
+                style={{ left: clampX, top: laneY, borderLeft: `3px solid ${tint(event.category)}` }}
                 aria-pressed={selectedId === event.id}
                 title={`${formatRange(event)} — ${event.title}\n${event.summary}`}
                 onPointerDown={(e) => e.stopPropagation()}
                 onClick={() => onSelect(event)}
               >
-                <span className="marker__dot" style={{ background: categoryColor(event.category) }} />
+                <span className="marker__dot" style={{ background: tint(event.category) }} />
                 <span className="marker__year">{formatRange(event)}</span>
                 <span className="marker__title">{event.title}</span>
                 {event.source === "handbook" && <span className="marker__badge">hb</span>}
@@ -254,7 +272,12 @@ export function Timeline({ events, view, onViewChange, selectedId, onSelect }: P
         />
       </div>
 
-      <Overview events={events} view={view} onChange={onViewChange} />
+      <Overview
+        events={events}
+        view={view}
+        onChange={onViewChange}
+        highlight={highlight}
+      />
     </div>
   );
 }

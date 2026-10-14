@@ -32,8 +32,10 @@ npm run lighthouse   # just the Lighthouse budgets (writes reports/)
   figures in words, and how the total is spread across the four nations.
 - **Detail panel** with the summary, the original exam reference text and the
   correct answers.
-- **Colour per category** with a legend that doubles as a filter, and a search
-  box that jumps straight to a date.
+- **Colour per category** with a legend that doubles as a filter: click a chip
+  to toggle it, Cmd/Ctrl-click (or Shift-click) to show only that category, and
+  hover a chip to highlight it across the timeline and the minimap. A search
+  box jumps straight to a date.
 - **Works on phones, tablets and desktops**: the detail panel becomes a bottom
   sheet, and a list view is available for small screens.
 - **Light and dark themes** that follow your system setting. Both palettes are

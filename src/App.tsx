@@ -36,6 +36,8 @@ export default function App() {
   const [active, setActive] = useState<Set<CategoryId>>(
     () => new Set(CATEGORIES.map((c) => c.id)),
   );
+  /** Category under the pointer in the legend, emphasised on the timeline. */
+  const [highlight, setHighlight] = useState<CategoryId | null>(null);
 
   const filteredEvents = useMemo(() => {
     const q = query.trim().toLowerCase();
@@ -88,6 +90,22 @@ export default function App() {
       prev.size === CATEGORIES.length ? new Set() : new Set(CATEGORIES.map((c) => c.id)),
     );
   }, []);
+
+  /**
+   * Grafana-style isolate: show only this category. Repeating it while this is
+   * already the only one on restores everything, so the gesture toggles.
+   */
+  const isolateCategory = useCallback((id: CategoryId) => {
+    setActive((prev) =>
+      prev.size === 1 && prev.has(id)
+        ? new Set(CATEGORIES.map((c) => c.id))
+        : new Set([id]),
+    );
+  }, []);
+
+  // Only emphasise a category that is actually shown: hovering a hidden chip
+  // must not dim the whole timeline down to nothing.
+  const litCategory = highlight !== null && active.has(highlight) ? highlight : null;
 
   const selectedId = selected?.event.id;
 
@@ -144,6 +162,7 @@ export default function App() {
               view={view}
               onViewChange={setView}
               selectedId={selectedId}
+              highlight={litCategory}
               onSelect={selectEvent}
             />
           ) : (
@@ -182,7 +201,13 @@ export default function App() {
         />
       </main>
 
-      <Legend active={active} onToggle={toggleCategory} onAll={toggleAll} />
+      <Legend
+        active={active}
+        onToggle={toggleCategory}
+        onIsolate={isolateCategory}
+        onHighlight={setHighlight}
+        onAll={toggleAll}
+      />
     </div>
   );
 }
