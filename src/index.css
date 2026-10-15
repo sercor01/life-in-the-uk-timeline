@@ -1367,10 +1367,17 @@ button {
 }
 
 /*
- * On the map tab the empty panel is just dead space — the map wants the room —
- * so it only appears once a place (or event) is actually selected.
+ * The empty panel is an invitation to open something, so it belongs on the tab
+ * where you pick from what you can see. On the map it is dead space the map
+ * wants; on the annual and population tabs it is worse than useless — the annual
+ * tab is already a list of dates (telling a reader to "pick a date" there is
+ * advice about another tab), and the population tab has nothing to select at all,
+ * so the sidebar would sit there permanently empty and steal the width. A panel
+ * that *is* showing something still appears normally on every tab.
  */
-.app--map .detail--empty {
+.app--map .detail--empty,
+.app--calendar .detail--empty,
+.app--population .detail--empty {
   display: none;
 }
 

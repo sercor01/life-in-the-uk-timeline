@@ -241,7 +241,11 @@ tests/
   fitting a tall country into a short wide box would leave it tiny with sea
   either side. Below 880px the stage stacks and scrolls, and the map keeps the
   country's own aspect ratio at full width. `.app--<tab>` is on the root for
-  this and for hiding the empty detail panel on the map tab.
+  this and for hiding the empty detail panel where it has no business: on the
+  map (dead space the map wants), on the annual tab (which is already a list of
+  dates, so "pick a date" is advice about another tab) and on the population tab
+  (where nothing can be selected at all). The timeline, the one tab that invites
+  a pick from what is on screen, keeps it.
 
 ## Links, history and the URL
 
@@ -428,8 +432,9 @@ size.
   URL restoring the tab, the timeline window, the filters and the panel; junk
   falling back to the defaults; Back/Forward between tabs; a round trip that
   keeps each tab's panel; browsing pins leaving one step back; zoom and typing
-  leaving the history alone; the copy-link button) and a phone viewport (no
-  horizontal overflow, bottom sheet opens). Uses `puppeteer-core`.
+  leaving the history alone; the copy-link button; the empty panel appearing
+  only where a panel can be opened) and a phone viewport (no horizontal
+  overflow, bottom sheet opens). Uses `puppeteer-core`.
 - `tests/contrast.test.mjs` (port `4318`) — reads the real CSS custom properties
   in both the light and dark themes and asserts every text pair is >= 4.5:1 and
   every graphic/axis/focus pair is >= 3:1 (WCAG AA). Checks the *tokens*;

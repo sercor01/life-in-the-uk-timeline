@@ -255,6 +255,60 @@ test("annual tab lists the year and opens a detail sheet", (t) =>
     assert.ok(detail.hasRef, "expected an exam reference");
   }));
 
+/*
+ * The empty panel is an invitation to open something, so it belongs on the tab
+ * where you pick from what you can see. On the annual tab it is advice about
+ * another tab — the tab *is* a list of dates — and the population tab has
+ * nothing to select at all, so the sidebar would sit there permanently empty
+ * and take the width with it.
+ */
+test("the empty panel only appears where it means something", (t) =>
+  withPage(t, async (page) => {
+    const aside = () =>
+      page.evaluate(() => {
+        const el = document.querySelector(".detail");
+        return {
+          empty: el.classList.contains("detail--empty"),
+          shown: getComputedStyle(el).display !== "none",
+          width: Math.round(el.getBoundingClientRect().width),
+        };
+      });
+
+    let panel = await aside();
+    assert.ok(panel.empty && panel.shown, "the timeline should invite a pick");
+    assert.ok(panel.width > 0, "and give the invitation some room");
+
+    for (const [tab, reason] of [
+      ["Annual dates", "the tab is already a list of dates"],
+      ["Population", "nothing there can be selected"],
+      ["Map", "the map wants the room"],
+    ]) {
+      await clickByText(page, ".tabs button", tab);
+      if (tab === "Map") await page.waitForSelector(".map__region", { timeout: 5000 });
+      await wait(300);
+      panel = await aside();
+      assert.equal(panel.shown, false, `expected no empty panel on ${tab} — ${reason}`);
+      assert.equal(panel.width, 0, `${tab} should get its width back`);
+    }
+
+    // A panel that is showing something does still appear on those tabs.
+    await clickByText(page, ".tabs button", "Annual dates");
+    await wait(300);
+    await page.click(".annual");
+    await wait(300);
+    const chosen = await page.evaluate(() => {
+      const el = document.querySelector(".detail");
+      return {
+        empty: el.classList.contains("detail--empty"),
+        shown: getComputedStyle(el).display !== "none",
+        title: el.querySelector("h2")?.textContent ?? "",
+      };
+    });
+    assert.equal(chosen.empty, false);
+    assert.equal(chosen.shown, true, "the chosen date's panel belongs on the annual tab");
+    assert.ok(chosen.title.length > 0, "expected the date's panel to open");
+  }));
+
 test("population figures search, open and link to the tab", (t) =>
   withPage(t, async (page) => {
     await page.type(".search input", "67 million");
@@ -337,16 +391,21 @@ test("switching tabs keeps the panel each tab was showing", (t) =>
     await wait(200);
     assert.equal(await page.$eval(".detail h2", (el) => el.textContent), opened);
 
-    // Another tab has no panel of its own, so the timeline's gives way to that
-    // tab's content — but nothing is thrown away.
+    // Another tab has no panel of its own, and the empty one is not shown
+    // there — but nothing is thrown away.
     await clickByText(page, ".tabs button", "Population");
     await wait(250);
-    const panel = await page.evaluate(() => ({
-      empty: !!document.querySelector(".detail--empty"),
-      heading: document.querySelector(".detail h2")?.textContent ?? "",
-    }));
-    assert.ok(panel.empty, "the timeline's panel does not follow you to another tab");
-    assert.equal(panel.heading, "Pick a date");
+    const elsewhere = await page.evaluate(() => {
+      const panel = document.querySelector(".detail");
+      return {
+        display: getComputedStyle(panel).display,
+        width: Math.round(panel.getBoundingClientRect().width),
+        panel: document.querySelector(".detail h2")?.textContent ?? "",
+      };
+    });
+    assert.equal(elsewhere.display, "none", "expected no panel on the population tab");
+    assert.equal(elsewhere.width, 0, "a panel that is not shown should take no room");
+    assert.equal(elsewhere.panel, "Pick a date", "…though the invitation is still there for the timeline");
 
     // Coming back restores it, marker and all.
     await clickByText(page, ".tabs button", "Timeline");
