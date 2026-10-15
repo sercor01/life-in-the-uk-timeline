@@ -88,8 +88,13 @@ export function PopulationView() {
         <ul className="nations">
           {NATION_SHARES.map((nation) => (
             <li className="nations__item" key={nation.id}>
-              <span className={`nations__dot nations__dot--${nation.id}`} />
-              <span className="nations__name">{nation.name}</span>
+              <span className="nations__label">
+                <span
+                  className={`nations__dot nations__dot--${nation.id}`}
+                  aria-hidden="true"
+                />
+                <span className="nations__name">{nation.name}</span>
+              </span>
               <span className="nations__share">{nation.label}</span>
             </li>
           ))}

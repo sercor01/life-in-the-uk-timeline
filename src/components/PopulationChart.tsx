@@ -2,10 +2,25 @@ import { useEffect, useRef, useState } from "react";
 import { POPULATION, POPULATION_MAX_MILLIONS } from "../data/population";
 
 const PAD = { top: 26, right: 18, bottom: 30, left: 46 };
-/** Years the handbook gives as a round number, labelled on the curve. */
+/** Years the handbook gives as a round number, drawn with a bigger dot. */
 const ANCHORS = new Set([1801, 1851, 1901, 1951]);
+/**
+ * Points labelled with their figure on the curve: the round-number anchors,
+ * plus the final point so the line ends on a number instead of tailing off
+ * unlabelled.
+ */
+const LABELLED = new Set([...ANCHORS, POPULATION[POPULATION.length - 1].year]);
 const GRID = [20, 40, 60];
 const YEAR_TICKS = [1600, 1700, 1800, 1900, 2000];
+
+/**
+ * The figure to print on the curve, taken from the handbook's wording with the
+ * qualifier dropped: "Just over 67 million" -> "67m".
+ */
+function shortFigure(label: string): string {
+  const number = label.match(/\d+/)?.[0];
+  return number ? `${number}m` : label;
+}
 
 /**
  * Area chart of the handbook's population table. It is decorative: the
@@ -111,7 +126,7 @@ export function PopulationChart() {
           />
         ))}
 
-        {POPULATION.filter((p) => ANCHORS.has(p.year)).map((p) => (
+        {POPULATION.filter((p) => LABELLED.has(p.year)).map((p) => (
           <text
             key={`label-${p.year}`}
             x={xOf(p.year)}
@@ -119,7 +134,7 @@ export function PopulationChart() {
             textAnchor="middle"
             className="pop-chart__anchor"
           >
-            {p.millions}m
+            {shortFigure(p.label)}
           </text>
         ))}
 

@@ -1244,15 +1244,25 @@ button {
   margin: 14px 0 0;
   padding: 0;
   display: grid;
-  grid-template-columns: repeat(auto-fill, minmax(180px, 1fr));
-  gap: 8px 18px;
+  grid-template-columns: repeat(auto-fill, minmax(200px, 1fr));
+  gap: 10px;
 }
 
 .nations__item {
   display: flex;
+  flex-direction: column;
+  gap: 3px;
+  background: var(--panel);
+  border: 1px solid var(--line);
+  border-radius: var(--radius);
+  padding: 10px 12px;
+  font-size: 13.5px;
+}
+
+.nations__label {
+  display: inline-flex;
   align-items: center;
   gap: 8px;
-  font-size: 13.5px;
 }
 
 .nations__dot {
@@ -1267,8 +1277,9 @@ button {
 }
 
 .nations__share {
+  /* Indented past the dot so the figure sits directly under its nation name. */
+  padding-left: 20px;
   color: var(--muted);
-  margin-left: auto;
   font-variant-numeric: tabular-nums;
 }
 

@@ -37,7 +37,7 @@ export function layoutEvents(events: TimelineEvent[], opts: LayoutOptions): Plac
     const norm = toNorm(event.year);
     const x = xOf(norm, view, width);
     if (x < -200 || x > width + 200) continue;
-    const text = `${formatRange(event)} ${event.title}`;
+    const text = `${formatRange(event)} ${event.markerLabel ?? event.title}`;
     // Handbook events carry a small badge, so reserve a little more room.
     const badge = event.source === "handbook" ? 30 : 0;
     const labelWidth = Math.min(280, text.length * charWidth + labelPadding + badge);

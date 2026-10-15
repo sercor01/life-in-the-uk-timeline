@@ -1261,6 +1261,9 @@ const POPULATION_EVENTS: TimelineEvent[] = POPULATION.map((point) => ({
   id: `population-${point.year}`,
   year: point.year,
   title: `Population: ${point.label.toLowerCase()}`,
+  // The marker shows the figure alone so the number stays visible where the
+  // full "Population: ..." title would be ellipsised.
+  markerLabel: point.label,
   summary:
     `The population of the UK was ${point.label.toLowerCase()}.` +
     (point.note ? ` ${point.note}` : ""),

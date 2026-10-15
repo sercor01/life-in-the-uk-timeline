@@ -76,6 +76,20 @@ export default function App() {
     [focusEvent],
   );
 
+  /**
+   * Switching tabs dismisses the detail panel: a selection belongs to the view
+   * it was made in, so carrying it into another tab would leave a stale panel
+   * open. Re-picking the active tab is a no-op and keeps the panel open.
+   */
+  const changeTab = useCallback(
+    (next: Tab) => {
+      if (next === tab) return;
+      setSelected(null);
+      setTab(next);
+    },
+    [tab],
+  );
+
   const toggleCategory = useCallback((id: CategoryId) => {
     setActive((prev) => {
       const next = new Set(prev);
@@ -127,7 +141,7 @@ export default function App() {
               key={t.id}
               type="button"
               aria-current={tab === t.id ? "true" : undefined}
-              onClick={() => setTab(t.id)}
+              onClick={() => changeTab(t.id)}
             >
               {t.label}
             </button>

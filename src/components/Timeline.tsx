@@ -251,7 +251,7 @@ export function Timeline({
               >
                 <span className="marker__dot" style={{ background: tint(event.category) }} />
                 <span className="marker__year">{formatRange(event)}</span>
-                <span className="marker__title">{event.title}</span>
+                <span className="marker__title">{event.markerLabel ?? event.title}</span>
                 {event.source === "handbook" && <span className="marker__badge">hb</span>}
               </button>
             );

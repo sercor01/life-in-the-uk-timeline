@@ -22,6 +22,12 @@ export interface TimelineEvent {
    */
   displayDate?: string;
   title: string;
+  /**
+   * Shorter label for the timeline marker, where horizontal room is tight.
+   * Falls back to `title`; search and the detail panel still use the full
+   * title, so the wording that makes an event findable is not lost.
+   */
+  markerLabel?: string;
   summary: string;
   category: CategoryId;
   /** 3 = always visible, 2 = medium, 1 = only when zoomed in. */

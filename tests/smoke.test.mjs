@@ -271,6 +271,17 @@ test("population figures search, open and link to the tab", (t) =>
     );
     assert.ok(onTimeline, "expected the focused figure on the timeline");
 
+    // The marker drops the "Population:" prefix so the figure is not cut off.
+    const label = await page.$eval(
+      '.marker[aria-pressed="true"] .marker__title',
+      (el) => ({
+        text: el.textContent,
+        truncated: el.scrollWidth > el.clientWidth + 1,
+      }),
+    );
+    assert.equal(label.text, "Just over 67 million");
+    assert.equal(label.truncated, false, "the figure must not be ellipsised");
+
     await page.click(".detail__cta");
     await wait(250);
     const activeTab = await page.$eval(
@@ -296,6 +307,37 @@ test("population tab shows the handbook population table", (t) =>
       el.getBoundingClientRect().width,
     );
     assert.ok(chartW > 0, "expected the chart to render");
+
+    // The final point is labelled too, using the number without the "just over".
+    const anchors = await page.$$eval(".pop-chart__anchor", (els) =>
+      els.map((e) => e.textContent),
+    );
+    assert.deepEqual(anchors, ["8m", "20m", "40m", "50m", "67m"]);
+  }));
+
+test("switching tabs clears the selected date", (t) =>
+  withPage(t, async (page) => {
+    await page.click(".marker");
+    await wait(250);
+    assert.ok(
+      await page.$(".detail h2"),
+      "expected the detail panel to open after picking a marker",
+    );
+
+    // Re-picking the active tab is a no-op and leaves the panel open.
+    await clickByText(page, ".tabs button", "Timeline");
+    await wait(200);
+    assert.ok(await page.$(".detail h2"), "expected the panel to stay open");
+
+    // Moving to another tab dismisses it.
+    await clickByText(page, ".tabs button", "Population");
+    await wait(250);
+    const panel = await page.evaluate(() => ({
+      empty: !!document.querySelector(".detail--empty"),
+      heading: document.querySelector(".detail h2")?.textContent ?? "",
+    }));
+    assert.ok(panel.empty, "expected the selection to be cleared");
+    assert.equal(panel.heading, "Pick a date");
   }));
 
 test("population tab fits a phone without overflow", (t) =>
