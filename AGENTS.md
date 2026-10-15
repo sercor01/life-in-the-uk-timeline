@@ -212,6 +212,16 @@ run does not interact with the page, INP is proxied by TBT; interaction jank
 Do not signal state by dimming text with `opacity` — it lowers contrast below AA
 and only the axe suite catches it. Use a different weight or a solid colour.
 
+`npm test` runs `node --test` with `--test-force-exit`. Each test file runs in
+its own child process and the runner only finishes once that process exits, but
+Vite loads `vite.config.ts` through esbuild, which leaves a long-lived
+`esbuild --service` subprocess behind that `server.close()` does not stop. That
+leaked subprocess keeps the child's event loop alive, so the runner used to wait
+minutes for a child whose tests had already passed (a full run took 4–10 minutes
+instead of ~65s). `--test-force-exit` lets the runner finish once the tests are
+done rather than waiting on the stray handle. Keep it — a run without it is the
+slow one.
+
 To extend the smoke suite, add a `test(...)` using the
 `withPage(t, async (page) => { ... })` helper, which opens a fresh page (or
 skips cleanly if no browser is found). Each suite starts its own preview server
