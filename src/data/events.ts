@@ -1273,3 +1273,8 @@ const POPULATION_EVENTS: TimelineEvent[] = POPULATION.map((point) => ({
 }));
 
 export const EVENTS: TimelineEvent[] = [...CURATED_EVENTS, ...POPULATION_EVENTS];
+
+/** Id lookup, used by the map to link a place to its historical event. */
+export const EVENT_BY_ID: Record<string, TimelineEvent> = Object.fromEntries(
+  EVENTS.map((e) => [e.id, e]),
+);

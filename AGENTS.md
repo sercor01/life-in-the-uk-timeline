@@ -18,6 +18,10 @@ npm run preview    # serve the production build
 npm run typecheck  # tsc --noEmit
 npm test           # build, then run the smoke + contrast + axe + Lighthouse suites
 npm run lighthouse # just the Lighthouse suite (writes reports/ for inspection)
+
+# one-off maintenance tools, deliberately outside the build
+node scripts/build-outline.mjs    # regenerate src/data/ukOutline.ts from Natural Earth
+node scripts/validate-places.mjs  # assert every place's examRefs and event links resolve
 ```
 
 Always run `npm run typecheck` (or `npm run build`) after changes. The repo is
@@ -30,12 +34,17 @@ variables fail the build.
 data/exams.json          # source quiz data (do not edit unless asked)
 public/robots.txt        # needed for the Lighthouse SEO audit to pass
 reports/                 # Lighthouse HTML/JSON output (gitignored)
+scripts/
+  build-outline.mjs      # one-off: Natural Earth -> src/data/ukOutline.ts
+  validate-places.mjs    # one-off: check places.ts refs/links/coords
 src/
   App.tsx                # top-level state: tab, view, selection, filters, query, highlight
-  types.ts               # TimelineEvent, AnnualEvent, Category, Selection, ExamRef
+  types.ts               # TimelineEvent, AnnualEvent, Place, Category, Selection, ExamRef
   data/
     events.ts            # curated historical events (the main content)
     annual.ts            # dates that repeat every year
+    places.ts            # curated map places (lat/lon, nation, exam refs)
+    ukOutline.ts         # GENERATED coastline; do not hand-edit
     population.ts        # handbook population table (+ chart/milestone scale)
     eras.ts              # historical eras: shared by the bands and the list
     categories.ts        # categories + colours
@@ -45,13 +54,19 @@ src/
     lanes.ts             # label layout into non-overlapping lanes + date fmt
     ticks.ts             # axis tick years for a view and width
     dates.ts             # month names + annual-date formatting
+    geo.ts               # lat/lon -> map space, plus the projected coastline paths
+    mapScale.ts          # map view rectangle (zoom/pan maths), clustering, label layout
     useTimelineGestures.ts # wheel / pointer / keyboard zoom + pan hook
+    useMapGestures.ts    # the same, in two dimensions, for the map
   components/
     Timeline.tsx         # SVG timeline, ticks, markers + label clamping
-    TimelineControls.tsx # zoom in / out / reset buttons
+    TimelineControls.tsx # zoom in / out / reset buttons (shared by the map)
     Overview.tsx         # draggable minimap
-    DetailPanel.tsx      # side panel / mobile bottom sheet
+    DetailPanel.tsx      # side panel / mobile bottom sheet (events, dates, places)
     EventListView.tsx    # accessible list fallback, grouped by era
+    MapView.tsx          # SVG coastline + HTML pins, clusters, spread-out groups
+    MapMinimap.tsx       # corner inset: country, place specks, visible rectangle
+    PlaceList.tsx        # accessible list of every place, grouped by nation
     CalendarView.tsx     # annual dates tab
     PopulationView.tsx   # population tab (chart, figures, nations)
     PopulationChart.tsx  # decorative area chart for the population tab
@@ -78,13 +93,22 @@ tests/
   events render with a dashed border and an `hb` badge.
 - `AnnualEvent` has `month`/`day` and an optional `movable` for feasts without a
   fixed date.
+- `Place` is the map's unit: `lat`/`lon` (real coordinates), `nation`
+  (`england`/`scotland`/`wales`/`ni`, the same ids as `NATION_SHARES`), a
+  `category`, `importance` (3 = always labelled), `examRefs`, and an optional
+  `linkedEventId` pointing at the `TimelineEvent` at that place. Places are the
+  one thing you cannot spot by looking: a bad `examRefs` or `linkedEventId`
+  fails *silently*, so `scripts/validate-places.mjs` checks all of them, and the
+  smoke suite asserts a place shows either a reference or the handbook note.
+  Coordinates are only picked by hand — `scripts/validate-places.mjs` also
+  rejects any that fall outside `MAP_BOUNDS` and would be cropped off the map.
 - The population figures live in `src/data/population.ts` (one table) and are
   mapped into `handbook` timeline events in `events.ts`, so the numbers are not
   duplicated. `POPULATION_MAX_MILLIONS` is the shared chart/bar scale.
 - Categories live in one place (`categories.ts`); the colour *values* are CSS
   custom properties (`--c-<id>`, `--c-<id>-tint`, `--c-<id>-ink`) defined per
   theme in `index.css`. Add a category there and it flows through the legend,
-  search and both views.
+  search and every view.
 
 ## How the timeline works
 
@@ -120,6 +144,94 @@ tests/
   render. Pointer capture is set on the container (not a child) so it survives
   re-renders mid-drag.
 
+## How the map works
+
+- **There is no map library, on purpose.** The app is offline and its CSP allows
+  no remote images, so a tile server would mean loosening the policy, a new
+  dependency and a network round-trip. Instead `scripts/build-outline.mjs`
+  downloads the public-domain Natural Earth 1:50m "map subunits" set once,
+  simplifies each nation's rings (Ramer–Douglas–Peucker) and writes
+  `src/data/ukOutline.ts` — ~17 kB of lon/lat. Commit that file; the build never
+  touches the network.
+- `lib/geo.ts` holds one projection, `project(lon, lat)`, plus the coastline
+  already projected into SVG path strings. The pins go through the *same*
+  function, which is the only reason they stay glued to the coast. Everything
+  outside `MAP_BOUNDS` is cropped, exactly as a printed UK map would be.
+- Map space is lon/lat degrees scaled by cos(latitude) and multiplied by 100, so
+  the viewBox numbers are convenient and the aspect ratio is right.
+- `lib/mapScale.ts` is the map's equivalent of `scale.ts`: a view is a rectangle
+  (centre + width) in map space, and the height follows the container's aspect
+  ratio, so the SVG `viewBox` and the HTML pins always agree. Zoom/pan never
+  touch pixels.
+- `MapView.tsx` renders one `<path>` per nation (a handful of DOM nodes) and, on
+  top, real `<button>` pins positioned in percentages — the same SVG-plus-HTML
+  composition as `Timeline.tsx`, which is what gives the pins native focus,
+  click and ARIA. The SVG is `aria-hidden`: `PlaceList` and the pins carry all
+  the meaning.
+- **Clustering** is single-linkage (connected components) over the "closer than
+  `CLUSTER_PX`" graph, not greedy nearest-first. That is a correctness
+  requirement, not a preference: single-linkage guarantees any two markers in
+  different clusters are further apart than the threshold, so markers never
+  overlap. A greedy pass can leave two near neighbours in different clusters,
+  the markers then overlap, and the WCAG 2.2 `target-size` rule fails. Keep
+  `CLUSTER_PX` (30) above the marker size (28px) for the same reason.
+- **A cluster click must always reveal its members.** Some places are closer
+  together than the deepest zoom can separate — Big Ben and Westminster Abbey
+  are 300m apart, under a pixel of the whole UK — so zooming can never split
+  them, and a click that only zooms would do nothing at all. In that case the
+  group is *spread out* around its true position, with a leader line
+  (`.map__link`) back to it. `spread` is a list of **place ids**, not cluster
+  keys: which places share a cluster depends on the frame width, and the width
+  changes the moment the detail panel opens, so a key captured before that
+  would go stale and close the fan. A list also lets two tight groups stay open
+  at once. The fan radius grows with the label width so the labels stay
+  legible, and is capped so it never becomes a starburst.
+- **Selecting a place brings it into view** (`useEffect` on `selectedId`):
+  centre it, and zoom so its nearest neighbour clears the cluster radius, so it
+  is drawn as its own pin rather than folded into a group — spreading the group
+  if that is impossible. Capped by `FOCUS_MAX_W` so an isolated place (Belfast,
+  whose nearest neighbour is 80km away) is not "focused" by zooming all the way
+  out. A place already on screen and drawn on its own is left alone, so clicking
+  a pin never yanks the map about. Never mind the zoom level: this is the one
+  place a view change is allowed to zoom *out*, because the user asked for that
+  place.
+- **Off-screen pins are not rendered at all**, clusters included. Keeping them
+  in the DOM would leave invisible-but-focusable buttons (a keyboard user would
+  tab into nothing) and their labels would be clamped back inside the frame,
+  floating with no marker under them.
+- `MapMinimap.tsx` is the corner inset: the country, a speck per place, and the
+  visible rectangle. The rectangle is drawn no smaller than `MIN_INDICATOR_PX`,
+  because at a deep zoom the true rectangle is a couple of pixels and simply
+  cannot be seen — the *centre* stays exact, only the drawn size is floored. It
+  has no outline, unlike the main map: at 132px the coastline's 1,200 vertices
+  plus twenty Scottish islands would cover the landmass and read as a black
+  blob. Like `Overview`, it is a pointer-only convenience with no ARIA.
+- **Labels** are dropped, never the pins: `layoutMapLabels` greedily places
+  labels by importance and skips any that would overlap an accepted one — the
+  same idea as `lanes.ts`. `importance` controls when a label appears at all
+  (`LABEL_PX` is pixels per map unit), and a `useLayoutEffect` then clamps the
+  survivors inside the frame by their measured width.
+- `lib/useMapGestures.ts` mirrors `useTimelineGestures`, but its `onViewChange`
+  takes an **updater** (`(view) => view`) rather than a value. Several wheel or
+  pinch events can land in one frame, and with a plain value each would be
+  computed from the same stale view, so all but the last would be lost.
+- The map is code-split (`React.lazy`) so the whole UK coastline stays off the
+  timeline's initial bundle; the smoke suite's CSP test loads it to prove
+  `script-src 'self'` still allows the chunk.
+- **The two views point at each other.** A place's panel links to its
+  `linkedEventId` on the timeline; an event's panel links to every place that
+  names it (`placesLinkedTo`), because one event can be the site of several —
+  the Norman Conquest is both the Tower of London and Hastings. Both links clear
+  the search box (`setQuery("")`) as they navigate. The box doubles as a live
+  filter, so leaving "Hadrian" in it made the destination show a single item
+  with nothing on screen to explain why, and Reset only resets the zoom, so it
+  looked stuck.
+- Layout: on wide screens the map and the place list sit side by side, because
+  fitting a tall country into a short wide box would leave it tiny with sea
+  either side. Below 880px the stage stacks and scrolls, and the map keeps the
+  country's own aspect ratio at full width. `.app--<tab>` is on the root for
+  this and for hiding the empty detail panel on the map tab.
+
 ## Conventions
 
 - Plain CSS in `src/index.css` using the variables in `:root`. No CSS framework.
@@ -131,19 +243,31 @@ tests/
   Both palettes are audited for WCAG AA — keep any new colour pair compliant:
   >= 4.5:1 for text, >= 3:1 for the axis, focus ring and category graphics.
   Solve colours with the contrast helper rather than guessing (see Testing).
+- **The map's tokens** (`--map-sea`, `--map-land`, `--map-<nation>`,
+  `--map-coast`, `--map-context`) follow the same rule. The land tints are
+  deliberately almost white: each pin is a category-coloured dot ringed in
+  `--panel`, and the *lightest* category graphic (the religion green) has to
+  clear 3:1 against the *darkest* land fill. Darkening the land for looks is
+  what breaks that — pick a lighter tint instead. Nations are told apart by
+  their outline and a subtle tint, not by luminance steps. `--map-context` is
+  the softer line for the Republic of Ireland, drawn as context land.
 - No state library; `App.tsx` holds state and passes props down.
 - Keep components presentational and the data/logic in `data/` and `lib/`.
 - Mobile is first-class: the detail panel becomes an overlay bottom sheet below
-  `880px`, and interactions must work with touch.
+  `880px`, and interactions must work with touch. Map pins are 28px (WCAG 2.2
+  asks for 24px) and clustering keeps them apart rather than letting targets
+  overlap.
 - **Legend / category filtering**: a chip click toggles one category; a
   Cmd/Ctrl-click — or Shift-click, and Shift+Enter from the keyboard, so the
   gesture has a keyboard route — isolates it, showing only that one, and
   repeating it restores everything. Hovering a chip sets `highlight` in
-  `App.tsx`, which `Timeline` uses to dim every *other* category: HTML markers,
-  SVG stems, range bars and the minimap ticks. The dim uses a solid grey
-  (`--faint` / `--muted`), never `opacity`, so contrast stays at AA. Hovering a
-  *hidden* chip does nothing, and the hover cue is mouse-only (checked with
-  `pointerType`) so a touch tap cannot leave the timeline stuck dimmed.
+  `App.tsx`, which `Timeline` and `MapView` use to dim every *other* category:
+  HTML markers and pins, SVG stems, range bars and the minimap ticks. The dim
+  uses a solid grey (`--faint` / `--muted`), never `opacity`, so contrast stays
+  at AA. Hovering a *hidden* chip does nothing, and the hover cue is mouse-only
+  (checked with `pointerType`) so a touch tap cannot leave the view stuck dimmed.
+  The same `active` set also filters the map's pins *and* its place list, so the
+  two can never disagree.
 
 **Accessibility patterns — keep these whole, do not half-build one:**
 
@@ -162,6 +286,19 @@ tests/
 - The detail panel's close button lives in `.detail__top`, a flex row it shares
   with the category chip, so it can never cover the heading. `.detail` is
   `position: relative` so any future absolutely-positioned child stays inside it.
+  `Selection` has three kinds (`event`, `annual`, `place`) and the panel renders
+  all three from the same frame, so a place gets the same eyebrow, summary and
+  reference cards as an event.
+- **The map is never the only way to reach a place.** The SVG is `aria-hidden`
+  and the pins are real buttons with names like "Stonehenge, Wiltshire —
+  Prehistory & early Britain"; a cluster announces its members ("5 places close
+  together: …") so its count is not a bare number. `PlaceList` repeats every
+  place as a list grouped by nation, which is both the screen-reader path and
+  the practical way to use the tab on a phone. Keep both halves: dropping the
+  list would leave the map as a colour-and-position puzzle. A group that has to
+  be spread out is still a set of ordinary buttons — the leader lines are
+  `aria-hidden`, so a screen reader hears the same names wherever the pin is
+  drawn.
 - **Security**: `index.html` carries a strict
   `<meta http-equiv="Content-Security-Policy">` (there are no inline scripts and
   no `eval`, so `script-src 'self'` is enough) and a `Referrer-Policy` meta —
@@ -179,17 +316,21 @@ tests/
 
 - `tests/smoke.test.mjs` (port `4317`) — rendering, zoom, pan, search, category
   filtering (including the isolate gesture and the hover highlight), list mode,
-  the annual and population tabs and a phone viewport (no horizontal overflow,
-  bottom sheet opens). Uses `puppeteer-core`.
+  the annual and population tabs, the map (pins, clustering and spreading out,
+  the place list, the minimap, both cross-links) and a phone viewport (no
+  horizontal overflow, bottom sheet opens). Uses `puppeteer-core`.
 - `tests/contrast.test.mjs` (port `4318`) — reads the real CSS custom properties
   in both the light and dark themes and asserts every text pair is >= 4.5:1 and
   every graphic/axis/focus pair is >= 3:1 (WCAG AA). Checks the *tokens*;
-  includes text over the era bands, which axe cannot measure.
-- `tests/axe.test.mjs` (port `4320`) — runs axe-core against 9 rendered states
-  (timeline, list, annual, population, a hidden category, several with a
-  detail panel open, and one with the search popover open) across both themes
-  and desktop/phone, for WCAG 2.0/2.1/2.2 A + AA. Checks the *rendered
-  screens*; catches things the token test cannot, e.g. text dimmed with opacity.
+  includes text over the era bands, which axe cannot measure, and every category
+  graphic against every map land fill.
+- `tests/axe.test.mjs` (port `4320`) — runs axe-core against 12 rendered states
+  (timeline, list, annual, population, the map, the map with a place open, the
+  map with a cluster expanded, a hidden category, several with a detail panel
+  open, and one with the search popover open) across both themes and
+  desktop/phone, for WCAG 2.0/2.1/2.2 A + AA. Checks the *rendered screens*;
+  catches things the token test cannot, e.g. text dimmed with opacity, or map
+  markers whose targets overlap (`target-size`).
   Contrast results axe leaves undecided (gradient backgrounds) are only logged,
   since `contrast.test.mjs` covers them.
 - `tests/lighthouse.test.mjs` (port `4319`) — runs Lighthouse on the production
@@ -226,7 +367,16 @@ To extend the smoke suite, add a `test(...)` using the
 `withPage(t, async (page) => { ... })` helper, which opens a fresh page (or
 skips cleanly if no browser is found). Each suite starts its own preview server
 via `startPreview(port)` from `tests/helpers.mjs`, so give a new suite a
-distinct port.
+distinct port. The map is a lazily-imported chunk, so a test that touches it
+must `await page.waitForSelector(".map__region")` (or `.pin`) first — otherwise
+it races the network and reads an empty screen. A synchronous loop of
+`dispatchEvent(new WheelEvent(...))` collapses into a single frame's worth of
+zoom; use `page.mouse.wheel` with a small delay to exercise real zooming.
+
+`scripts/validate-places.mjs` is not part of `npm test` (it reads the sources
+textually), so run it whenever `places.ts` changes. The suites cover what it
+cannot: that a rendered place shows a reference or the handbook note, and that
+the legend filter reaches the pins *and* the list.
 
 When picking colours, iterate with a small contrast function (the one in
 `tests/contrast.test.mjs`) until it passes, then paste the values into

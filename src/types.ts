@@ -7,6 +7,7 @@ export type CategoryId =
   | "science"
   | "arts"
   | "sport"
+  | "landscape"
   | "population";
 
 /** A dated happening placed on the historical timeline. */
@@ -56,9 +57,47 @@ export interface ExamRef {
   id: number;
 }
 
+/**
+ * The four parts of the UK, using the same ids as the population tab's nation
+ * bar (`NATION_SHARES`) so colours and wording stay in one vocabulary.
+ */
+export type NationId = "england" | "scotland" | "wales" | "ni";
+
+/**
+ * A real place worth finding on the map. It has no year of its own — it is a
+ * *where*, not a *when* — so it is separate from `TimelineEvent`. It links back
+ * to the exam questions it came from and, optionally, to the historical event
+ * at that place so the two views can point at each other.
+ */
+export interface Place {
+  id: string;
+  name: string;
+  nation: NationId;
+  /** Latitude in degrees, north positive. */
+  lat: number;
+  /** Longitude in degrees, east positive. */
+  lon: number;
+  category: CategoryId;
+  /** Town, county or region shown as the "where" line, e.g. "Wiltshire". */
+  area?: string;
+  /**
+   * Shorter label for the map pin, where space is tight. Falls back to `name`;
+   * the detail panel and search always use the full name.
+   */
+  markerLabel?: string;
+  summary: string;
+  /** 3 = labelled at every zoom, 2 = medium, 1 = only when zoomed in. */
+  importance: 1 | 2 | 3;
+  source: "exam" | "handbook";
+  examRefs?: ExamRef[];
+  /** Id of the `TimelineEvent` at this place, for the "show on the timeline" link. */
+  linkedEventId?: string;
+}
+
 export type Selection =
   | { kind: "event"; event: TimelineEvent }
-  | { kind: "annual"; event: AnnualEvent };
+  | { kind: "annual"; event: AnnualEvent }
+  | { kind: "place"; place: Place };
 
 export interface Category {
   id: CategoryId;

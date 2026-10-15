@@ -1,29 +1,51 @@
 import { CATEGORY_BY_ID, categoryColor, categoryInk, categoryTint } from "../data/categories";
+import { EVENT_BY_ID } from "../data/events";
+import { NATION_BY_ID, placesLinkedTo } from "../data/places";
 import { resolveRefs } from "../data/exams";
 import { formatAnnualDate } from "../lib/dates";
 import { formatRange } from "../lib/lanes";
-import type { Selection } from "../types";
+import type { Place, Selection, TimelineEvent } from "../types";
 
 interface Props {
   selection: Selection | null;
   onClose: () => void;
   /** Opens the Population tab; only used by population events. */
   onOpenPopulation?: () => void;
+  /** Jumps to the timeline on an event; used by a place's cross-link. */
+  onOpenEvent?: (event: TimelineEvent) => void;
+  /** Jumps to the map on a place; used by an event's cross-link. */
+  onOpenPlace?: (place: Place) => void;
 }
 
-export function DetailPanel({ selection, onClose, onOpenPopulation }: Props) {
+export function DetailPanel({
+  selection,
+  onClose,
+  onOpenPopulation,
+  onOpenEvent,
+  onOpenPlace,
+}: Props) {
   if (!selection) {
     return (
-      <aside className="detail detail--empty" aria-label="Event details">
+      <aside className="detail detail--empty" aria-label="Details">
         <div>
           <p className="detail__empty-emoji">🗓️</p>
           <h2>Pick a date</h2>
           <p>
-            Select any marker on the timeline to read the full story, the exam
-            reference and the questions it came from.
+            Select any marker on the timeline or pin on the map to read the full
+            story, the exam reference and the questions it came from.
           </p>
         </div>
       </aside>
+    );
+  }
+
+  if (selection.kind === "place") {
+    return (
+      <PlaceDetail
+        selection={selection}
+        onClose={onClose}
+        onOpenEvent={onOpenEvent}
+      />
     );
   }
 
@@ -33,6 +55,7 @@ export function DetailPanel({ selection, onClose, onOpenPopulation }: Props) {
   const isEvent = selection.kind === "event";
   const source = isEvent ? selection.event.source : null;
   const isHandbookOnly = isEvent && refs.length === 0 && source === "handbook";
+  const linkedPlaces = isEvent ? placesLinkedTo(selection.event.id) : [];
 
   const dateLine = isEvent
     ? formatRange(selection.event)
@@ -106,6 +129,111 @@ export function DetailPanel({ selection, onClose, onOpenPopulation }: Props) {
           <h3>Source</h3>
           <p className="detail__note">
             This date is from the official handbook but does not appear in the
+            question sets you provided, so there is no exam reference to show.
+          </p>
+        </div>
+      )}
+
+      {isEvent && onOpenPlace && linkedPlaces.length > 0 && (
+        <div className="detail__section">
+          <h3>See it on the map</h3>
+          {linkedPlaces.map((place) => (
+            <button
+              key={place.id}
+              type="button"
+              className="detail__cta"
+              onClick={() => onOpenPlace(place)}
+            >
+              Show {place.name} on the map →
+            </button>
+          ))}
+        </div>
+      )}
+    </aside>
+  );
+}
+
+/**
+ * The map's detail view. It mirrors the event panel — same eyebrow chip, same
+ * exam-reference cards — and adds the "where" line and a link back to the
+ * timeline event at the place, so the two views point at each other.
+ */
+function PlaceDetail({
+  selection,
+  onClose,
+  onOpenEvent,
+}: {
+  selection: Extract<Selection, { kind: "place" }>;
+  onClose: () => void;
+  onOpenEvent?: (event: TimelineEvent) => void;
+}) {
+  const place = selection.place;
+  const category = CATEGORY_BY_ID[place.category];
+  const refs = resolveRefs(place.examRefs);
+  const linked = place.linkedEventId ? EVENT_BY_ID[place.linkedEventId] : undefined;
+
+  return (
+    <aside className="detail" aria-label="Place details">
+      <div className="detail__top">
+        <span
+          className="detail__eyebrow"
+          style={{ background: categoryTint(category.id), color: categoryInk(category.id) }}
+        >
+          <span className="marker__dot" style={{ background: categoryColor(category.id) }} />
+          {category.label}
+          <span className="detail__eyebrow-tag">
+            · {place.source === "exam" ? "from exam" : "handbook"}
+          </span>
+        </span>
+
+        <button type="button" className="detail__close" onClick={onClose} aria-label="Close">
+          ✕
+        </button>
+      </div>
+
+      <h2>{place.name}</h2>
+      <div className="detail__date">{place.area ?? NATION_BY_ID[place.nation]}</div>
+      <p className="detail__summary">{place.summary}</p>
+
+      {linked && onOpenEvent && (
+        <div className="detail__section">
+          <h3>See it in context</h3>
+          <button type="button" className="detail__cta" onClick={() => onOpenEvent(linked)}>
+            Show {linked.title} on the timeline →
+          </button>
+        </div>
+      )}
+
+      {refs.length > 0 && (
+        <div className="detail__section">
+          <h3>Exam reference</h3>
+          {refs.map(({ ref, question }) => (
+            <div className="ref-card" key={`${ref.set}-${ref.id}`}>
+              <p className="ref-card__q">
+                Set {ref.set} · Q{ref.id}: {question.question}
+              </p>
+              {question.reference.trim() && <p>{question.reference.trim()}</p>}
+              {question.answers.some((a) => a.isCorrect) && (
+                <div className="detail__links">
+                  {question.answers
+                    .filter((a) => a.isCorrect)
+                    .map((a) => (
+                      <span className="chip" key={a.text}>
+                        ✓ {a.text}
+                      </span>
+                    ))}
+                </div>
+              )}
+            </div>
+          ))}
+        </div>
+      )}
+
+      {place.source === "handbook" && refs.length === 0 && (
+        <div className="detail__section">
+          <h3>Source</h3>
+          <p className="detail__note">
+            This place is from the official handbook but does not appear in the
             question sets you provided, so there is no exam reference to show.
           </p>
         </div>

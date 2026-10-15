@@ -1,7 +1,8 @@
 # Life in the UK · date timeline
 
 An interactive web app that shows every date worth memorising for the *Life in
-the UK* test on a zoomable timeline, with the exam references one tap away.
+the UK* test on a zoomable timeline — and every place worth knowing on an
+interactive map — with the exam references one tap away.
 
 ## Run it
 
@@ -12,6 +13,10 @@ npm run build    # type-check and build to dist/
 npm run preview  # preview the production build
 npm test             # build, then run the smoke + contrast + axe + Lighthouse suites
 npm run lighthouse   # just the Lighthouse budgets (writes reports/)
+
+# maintenance helpers (not part of the build)
+node scripts/build-outline.mjs    # regenerate the map coastline from Natural Earth
+node scripts/validate-places.mjs  # check every place's examRefs and event links
 ```
 
 ## What it does
@@ -28,6 +33,17 @@ npm run lighthouse   # just the Lighthouse budgets (writes reports/)
 - **Range bars** for things that lasted a while (wars, reigns, booms).
 - **Annual dates tab** for the dates that repeat every year (saint days,
   Christmas, Hogmanay, Halloween…) plus movable feasts like Easter and Lent.
+- **Map tab**: an interactive map of the United Kingdom with every place the
+  exam asks about — Stonehenge, the Tower of London, Hadrian's Wall, the Giant's
+  Causeway, Snowdon and the four capitals. Pins are coloured by category, group
+  into clusters where they overlap (London above all), and zoom with the same
+  gestures as the timeline. A cluster always opens up: if zooming cannot pull
+  its places apart — Big Ben and Westminster Abbey are 300 metres apart — they
+  are spread out around their true position with leader lines instead. A minimap
+  in the corner shows the whole country and where you are looking. Choosing a
+  place centres it and zooms to suit, and a place's panel links to the historical
+  event there while an event's panel links back to the place. Every place is also
+  listed below the map, grouped by nation, so the map is never the only way in.
 - **Population tab** for the handbook's population table: a growth chart, the
   figures in words, and how the total is spread across the four nations.
 - **Detail panel** with the summary, the original exam reference text and the
@@ -51,6 +67,13 @@ npm run lighthouse   # just the Lighthouse budgets (writes reports/)
   importance (3 = always shown, 1 = only when zoomed in), and links back to the
   quiz questions it came from.
 - `src/data/annual.ts` — the dates that repeat every year.
+- `src/data/places.ts` — the places on the map: real coordinates, a nation, a
+  category, a summary, an importance (3 = always labelled), any exam references
+  and an optional link to the historical event at that place. The detail panel
+  uses those links in both directions, so the map and the timeline can hand you
+  to each other.
+- `src/data/ukOutline.ts` — the committed coastline, generated (not hand-edited)
+  by `scripts/build-outline.mjs` from the public-domain Natural Earth data set.
 - `src/data/population.ts` — the handbook's population table, the growth steps
   and the four-nation shares. Each figure also becomes a `handbook` event on the
   timeline so the numbers live in one place.
@@ -58,14 +81,18 @@ npm run lighthouse   # just the Lighthouse budgets (writes reports/)
   CSS variables so light and dark themes can each be accessible).
 
 To add an event, append to `src/data/events.ts`. To point at a question, use
-`examRefs: [{ set: 3, id: 19 }]`.
+`examRefs: [{ set: 3, id: 19 }]`. To add a place to the map, append to
+`src/data/places.ts` and run `node scripts/validate-places.mjs` — a bad
+reference or event link fails silently in the UI otherwise.
 
 ## Quality checks
 
 `npm test` gates the build on four headless-browser suites:
 
 - **Smoke** (`tests/smoke.test.mjs`) — timeline renders, zoom, pan, search,
-  filters, list mode, the annual tab, the population tab, and a phone viewport.
+  filters, list mode, the annual and population tabs, the map (pins, clustering,
+  spreading a tight group out, the minimap, the place list, and both cross-links
+  between the map and the timeline) and a phone viewport.
 - **Contrast** (`tests/contrast.test.mjs`) — the design tokens meet WCAG AA in
   both themes (text ≥ 4.5:1, graphics ≥ 3:1), including text over the era bands.
 - **axe** (`tests/axe.test.mjs`) — axe-core audits every rendered screen/state in
@@ -109,7 +136,8 @@ loudly instead of silently skipping every test.
 
 Most events are drawn from your `exams.json`. A handful are filled in from the
 official handbook where the quizzes skip a date (these carry a dashed border and
-an `hb` badge, and are marked `source: "handbook"`).
+an `hb` badge, and are marked `source: "handbook"`). Map places work the same
+way: a `handbook` place shows the handbook note instead of an exam reference.
 
 A few places in the source data disagree with themselves. The timeline states
 the value the reference text gives and does not try to hide the conflict:

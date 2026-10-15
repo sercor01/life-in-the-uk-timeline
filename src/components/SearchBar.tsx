@@ -1,6 +1,7 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import { ANNUAL_EVENTS } from "../data/annual";
 import { EVENTS } from "../data/events";
+import { NATION_BY_ID, PLACES } from "../data/places";
 import { categoryColor } from "../data/categories";
 import { MONTHS_SHORT } from "../lib/dates";
 import { formatRange } from "../lib/lanes";
@@ -45,6 +46,16 @@ function buildIndex(active: Set<CategoryId>): Match[] {
         : `${event.day} ${MONTHS_SHORT[event.month - 1]} (every year)`,
       color: categoryColor(event.category),
       selection: { kind: "annual", event },
+    });
+  }
+  for (const place of PLACES) {
+    if (!active.has(place.category)) continue;
+    matches.push({
+      id: `p-${place.id}`,
+      label: place.name,
+      meta: `Place · ${place.area ?? NATION_BY_ID[place.nation]}`,
+      color: categoryColor(place.category),
+      selection: { kind: "place", place },
     });
   }
   return matches;
@@ -124,9 +135,9 @@ export function SearchBar({ active, onPick, query, onQueryChange }: Props) {
       </span>
       <input
         type="search"
-        placeholder="Search dates and events…"
+        placeholder="Search dates, events and places…"
         value={query}
-        aria-label="Search dates and events"
+        aria-label="Search dates, events and places"
         role="combobox"
         aria-expanded={isOpen}
         aria-controls={RESULTS_ID}

@@ -14,6 +14,7 @@ export const CATEGORIES: Category[] = [
   { id: "science", label: "Science & invention" },
   { id: "arts", label: "Arts & literature" },
   { id: "sport", label: "Sport" },
+  { id: "landscape", label: "Landscape & nature" },
   { id: "population", label: "Population" },
 ];
 

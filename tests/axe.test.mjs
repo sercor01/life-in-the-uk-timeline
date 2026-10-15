@@ -55,6 +55,33 @@ const STATES = [
     name: "population",
     go: (page) => clickByText(page, ".tabs button", "Population"),
   },
+  // The map is a lazily-loaded chunk, so these states wait for the coastline
+  // before auditing rather than racing the network.
+  {
+    name: "map",
+    go: async (page) => {
+      await clickByText(page, ".tabs button", "Map");
+      await page.waitForSelector(".map__region", { timeout: 5000 });
+    },
+  },
+  {
+    name: "map with a place open",
+    go: async (page) => {
+      await clickByText(page, ".tabs button", "Map");
+      await page.waitForSelector(".map__region", { timeout: 5000 });
+      await wait(150);
+      await clickByText(page, ".pin:not(.pin--cluster)");
+    },
+  },
+  {
+    name: "map with a cluster open",
+    go: async (page) => {
+      await clickByText(page, ".tabs button", "Map");
+      await page.waitForSelector(".map__region", { timeout: 5000 });
+      await wait(150);
+      await clickByText(page, ".pin--cluster");
+    },
+  },
   // The combobox markup only exists while the popover is open, so it needs its
   // own state — this is what guards the search results' ARIA.
   {

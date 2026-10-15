@@ -13,6 +13,7 @@ const CATEGORY_IDS = [
   "science",
   "arts",
   "sport",
+  "landscape",
   "population",
 ];
 const ERAS = [
@@ -80,6 +81,7 @@ async function readTokens(page, scheme) {
       "science",
       "arts",
       "sport",
+      "landscape",
       "population",
     ]) {
       out[`c-${id}`] = style.getPropertyValue(`--c-${id}`).trim();
@@ -99,6 +101,18 @@ async function readTokens(page, scheme) {
       out[`era-${era}`] = style.getPropertyValue(`--era-${era}`).trim();
     }
     for (const n of ["pop-line", "pop-england", "pop-scotland", "pop-wales", "pop-ni"]) {
+      out[n] = style.getPropertyValue(`--${n}`).trim();
+    }
+    for (const n of [
+      "map-sea",
+      "map-land",
+      "map-england",
+      "map-scotland",
+      "map-wales",
+      "map-ni",
+      "map-coast",
+      "map-context",
+    ]) {
       out[n] = style.getPropertyValue(`--${n}`).trim();
     }
     return out;
@@ -148,6 +162,31 @@ function auditTheme(scheme, tokens) {
   for (const n of ["pop-line", "pop-england", "pop-scotland", "pop-wales", "pop-ni"]) {
     check(`${n} on panel`, tokens[n], tokens.panel, 3);
     check(`${n} on bg`, tokens[n], tokens.bg, 3);
+  }
+
+  /*
+   * Map tab. Every pin is a filled category-coloured dot ringed in the panel
+   * colour, so each dot must clear 3:1 against each land fill it can sit on —
+   * including the darkest one, which is what makes the land tints so pale.
+   */
+  const LANDS = ["map-land", "map-england", "map-scotland", "map-wales", "map-ni"];
+  check("map-coast on sea", tokens["map-coast"], tokens["map-sea"], 3);
+  check("map-context on sea", tokens["map-context"], tokens["map-sea"], 3);
+  // The cluster marker's count sits on the accent colour.
+  check("cluster text on accent", tokens.panel, tokens.accent, 4.5);
+  // The minimap's view indicator: an accent outline that can sit over the sea
+  // or any land tint.
+  check("indicator on sea", tokens.accent, tokens["map-sea"], 3);
+  for (const land of LANDS) {
+    check(`indicator on ${land}`, tokens.accent, tokens[land], 3);
+  }
+  for (const land of LANDS) {
+    check(`ink on ${land}`, tokens.ink, tokens[land], 4.5);
+    check(`map-coast on ${land}`, tokens["map-coast"], tokens[land], 3);
+    check(`map-context on ${land}`, tokens["map-context"], tokens[land], 3);
+    for (const id of CATEGORY_IDS) {
+      check(`pin ${id} on ${land}`, tokens[`c-${id}`], tokens[land], 3);
+    }
   }
 
   assert.equal(

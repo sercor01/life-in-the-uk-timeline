@@ -1,17 +1,27 @@
-import { useCallback, useMemo, useState } from "react";
+import { Suspense, lazy, useCallback, useMemo, useState } from "react";
 import { CATEGORIES } from "./data/categories";
 import { EVENTS } from "./data/events";
+import { PLACES } from "./data/places";
 import { MIN_SPAN, FULL_VIEW, clampView, toNorm, type ViewWindow } from "./lib/scale";
 import { CalendarView } from "./components/CalendarView";
 import { DetailPanel } from "./components/DetailPanel";
 import { EventListView } from "./components/EventListView";
 import { Legend } from "./components/Legend";
+import { PlaceList } from "./components/PlaceList";
 import { PopulationView } from "./components/PopulationView";
 import { SearchBar } from "./components/SearchBar";
 import { Timeline } from "./components/Timeline";
-import type { CategoryId, Selection, TimelineEvent } from "./types";
+import type { CategoryId, Place, Selection, TimelineEvent } from "./types";
 
-type Tab = "timeline" | "calendar" | "population";
+/**
+ * The map carries the whole UK coastline as committed data, so it is split into
+ * its own chunk: the timeline's first paint should not pay for it.
+ */
+const MapView = lazy(() =>
+  import("./components/MapView").then((m) => ({ default: m.MapView })),
+);
+
+type Tab = "timeline" | "calendar" | "map" | "population";
 type TimelineMode = "timeline" | "list";
 
 const FOCUS_SPAN = Math.max(MIN_SPAN * 5, 0.05);
@@ -19,6 +29,7 @@ const FOCUS_SPAN = Math.max(MIN_SPAN * 5, 0.05);
 const TABS: { id: Tab; label: string }[] = [
   { id: "timeline", label: "Timeline" },
   { id: "calendar", label: "Annual dates" },
+  { id: "map", label: "Map" },
   { id: "population", label: "Population" },
 ];
 
@@ -55,6 +66,32 @@ export default function App() {
     setSelected({ kind: "event", event });
   }, []);
 
+  const selectPlace = useCallback((place: Place) => {
+    setSelected({ kind: "place", place });
+  }, []);
+
+  /** Jump to the map on a place and open its panel. */
+  const focusPlace = useCallback((place: Place) => {
+    setSelected({ kind: "place", place });
+    setTab("map");
+    // As in `focusEvent`: a stale search filter would hide the place's
+    // neighbours, and the map is where the context matters most.
+    setQuery("");
+  }, []);
+
+  /** Places respect the legend categories and the search box, like the timeline. */
+  const filteredPlaces = useMemo(() => {
+    const q = query.trim().toLowerCase();
+    return PLACES.filter((p) => active.has(p.category)).filter((p) => {
+      if (!q) return true;
+      return (
+        p.name.toLowerCase().includes(q) ||
+        p.summary.toLowerCase().includes(q) ||
+        (p.area ?? "").toLowerCase().includes(q)
+      );
+    });
+  }, [active, query]);
+
   /** Jump the timeline to an event and open its detail panel. */
   const focusEvent = useCallback((event: TimelineEvent) => {
     const centre = toNorm(event.year);
@@ -62,6 +99,13 @@ export default function App() {
     setSelected({ kind: "event", event });
     setTab("timeline");
     setMode("timeline");
+    /*
+     * Drop any search text. The box doubles as a live filter, so arriving from
+     * a cross-link with "Hadrian" still in it would leave the whole view
+     * showing one marker, with nothing on screen to explain why — and Reset
+     * only resets the zoom, so it would look stuck.
+     */
+    setQuery("");
   }, []);
 
   const handlePick = useCallback(
@@ -69,6 +113,9 @@ export default function App() {
       if (selection.kind === "annual") {
         setSelected(selection);
         setTab("calendar");
+      } else if (selection.kind === "place") {
+        setSelected(selection);
+        setTab("map");
       } else {
         focusEvent(selection.event);
       }
@@ -121,10 +168,11 @@ export default function App() {
   // must not dim the whole timeline down to nothing.
   const litCategory = highlight !== null && active.has(highlight) ? highlight : null;
 
-  const selectedId = selected?.event.id;
+  const selectedId =
+    selected?.kind === "place" ? selected.place.id : selected?.event.id;
 
   return (
-    <div className="app">
+    <div className={`app app--${tab}`}>
       <header className="app__header">
         <div className="brand">
           Life in the UK <small>dates to memorise</small>
@@ -199,6 +247,24 @@ export default function App() {
           </div>
         )}
 
+        {tab === "map" && (
+          <div className="stage map-stage">
+            <Suspense fallback={<p className="map-stage__loading">Loading the map…</p>}>
+              <MapView
+                places={filteredPlaces}
+                selectedId={selectedId}
+                highlight={litCategory}
+                onSelect={selectPlace}
+              />
+            </Suspense>
+            <PlaceList
+              places={filteredPlaces}
+              selectedId={selectedId}
+              onSelect={selectPlace}
+            />
+          </div>
+        )}
+
         {tab === "population" && (
           <div className="stage">
             <PopulationView />
@@ -212,6 +278,8 @@ export default function App() {
             setSelected(null);
             setTab("population");
           }}
+          onOpenEvent={focusEvent}
+          onOpenPlace={focusPlace}
         />
       </main>
 

@@ -63,6 +63,9 @@
   --c-sport: #ea580c;
   --c-sport-tint: #ffedd5;
   --c-sport-ink: #c2410c;
+  --c-landscape: #0d9488;
+  --c-landscape-tint: #ccfbf1;
+  --c-landscape-ink: #0f766e;
   --c-population: #4f46e5;
   --c-population-tint: #e0e7ff;
   --c-population-ink: #3730a3;
@@ -75,6 +78,22 @@
   --pop-scotland: #0e7490;
   --pop-wales: #b91c1c;
   --pop-ni: #15803d;
+
+  /*
+   * Map tab. Land tints are deliberately near-white: every pin is a filled dot
+   * in its category colour, so the *lightest* graphics (the religion green)
+   * must still clear 3:1 against the darkest land fill. The nations are told
+   * apart by their outline rather than by big luminance steps; the Republic of
+   * Ireland is drawn as softer context land.
+   */
+  --map-sea: #c9d8ea;
+  --map-land: #fbfcfa;
+  --map-england: #fdf9f3;
+  --map-scotland: #f5f9ff;
+  --map-wales: #f7fdf4;
+  --map-ni: #fff7fd;
+  --map-coast: #495a72;
+  --map-context: #5f6d85;
 
   --radius: 14px;
   --header-h: 60px;
@@ -145,6 +164,9 @@
     --c-sport: #fb923c;
     --c-sport-tint: #3a1c0c;
     --c-sport-ink: #fdba74;
+    --c-landscape: #5eead4;
+    --c-landscape-tint: #0b2e2b;
+    --c-landscape-ink: #99f6e4;
     --c-population: #a5b4fc;
     --c-population-tint: #232b4a;
     --c-population-ink: #c7d2fe;
@@ -156,6 +178,16 @@
     --pop-scotland: #5fd4e6;
     --pop-wales: #fca5a5;
     --pop-ni: #6ee7a0;
+
+    /* Map tab: see the note on the light palette. */
+    --map-sea: #0d1626;
+    --map-land: #1b2740;
+    --map-england: #22283b;
+    --map-scotland: #1c2942;
+    --map-wales: #1a2b2a;
+    --map-ni: #241f33;
+    --map-coast: #8494ad;
+    --map-context: #6b7d9c;
   }
 }
 
@@ -784,6 +816,11 @@ button {
   color: var(--accent);
 }
 
+/* One event can be the site of several places (the Norman Conquest, say). */
+.detail__cta + .detail__cta {
+  margin-top: 8px;
+}
+
 .detail__cta:hover {
   border-color: var(--accent);
   background: var(--accent-soft);
@@ -1283,6 +1320,345 @@ button {
   font-variant-numeric: tabular-nums;
 }
 
+/* -------------------------------------------------------------------- map */
+/*
+ * Wide screens put the place list in its own column beside the map, so the map
+ * gets a tall box: fitting a tall country into a short wide box would leave it
+ * tiny with sea either side. Narrow screens stack instead, and the map keeps
+ * the country's own aspect ratio at full width.
+ */
+.map-stage {
+  flex-direction: row;
+  overflow: hidden;
+}
+
+/*
+ * On the map tab the empty panel is just dead space — the map wants the room —
+ * so it only appears once a place (or event) is actually selected.
+ */
+.app--map .detail--empty {
+  display: none;
+}
+
+.map {
+  position: relative;
+  flex: 1 1 auto;
+  min-width: 0;
+  min-height: 200px;
+  overflow: hidden;
+  background: var(--map-sea);
+  touch-action: none;
+  user-select: none;
+  cursor: grab;
+}
+
+.map.is-grabbing {
+  cursor: grabbing;
+}
+
+.map__svg {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  display: block;
+}
+
+/*
+ * `non-scaling-stroke` keeps the outline one device-independent pixel wide at
+ * every zoom, so a deep zoom does not turn the coast into a fat band.
+ */
+.map__region {
+  stroke: var(--map-coast);
+  stroke-width: 1;
+  stroke-linejoin: round;
+  vector-effect: non-scaling-stroke;
+}
+
+.map__region--ireland {
+  stroke: var(--map-context);
+}
+
+.map__pins {
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+}
+
+/*
+ * Corner inset: the whole country with the current view drawn inside it. It
+ * lives inside `.map` so it follows the map in both layouts, which is why its
+ * pointer-down stops propagation (the map would otherwise start a pan).
+ */
+.map-minimap {
+  position: absolute;
+  left: 14px;
+  bottom: 14px;
+  z-index: 10;
+  width: 132px;
+  max-width: 32%;
+  background: var(--map-sea);
+  border: 1px solid var(--line);
+  border-radius: 10px;
+  box-shadow: var(--shadow);
+  overflow: hidden;
+  cursor: pointer;
+  touch-action: none;
+}
+
+.map-minimap__svg {
+  display: block;
+  width: 100%;
+  height: 100%;
+}
+
+/*
+ * Deliberately no outline, unlike the main map. At this size a stroke on all
+ * ~1,200 coastline vertices — plus twenty Scottish islands — would cover the
+ * landmass and read as a black blob. The land tints against the sea carry the
+ * shape instead.
+ */
+.map-minimap__region {
+  stroke: none;
+}
+
+/*
+ * The indicator: the halo separates it from whatever land tint is underneath
+ * (`--panel` is near-white in light, near-black in dark — the same trick as the
+ * pin dots), and the accent outline carries the contrast (>= 3:1 on every land
+ * fill, checked by the token suite).
+ */
+.map-minimap__halo {
+  fill: none;
+  stroke: var(--panel);
+  stroke-width: 4;
+  vector-effect: non-scaling-stroke;
+}
+
+.map-minimap__window {
+  fill: var(--accent-window-active);
+  stroke: var(--accent);
+  stroke-width: 2;
+  vector-effect: non-scaling-stroke;
+}
+
+/* Leader line from a fanned-out pin back to the place's real position. */
+.map__link {
+  position: absolute;
+  height: 1px;
+  background: var(--faint);
+  transform-origin: 0 50%;
+  pointer-events: none;
+}
+
+.pin {
+  position: absolute;
+  width: 28px;
+  height: 28px;
+  padding: 0;
+  border: 0;
+  background: none;
+  border-radius: 50%;
+  transform: translate(-50%, -50%);
+  display: grid;
+  place-items: center;
+  pointer-events: auto;
+}
+
+.pin__dot {
+  width: 13px;
+  height: 13px;
+  border-radius: 50%;
+  background: var(--pin, var(--accent));
+  /* The panel-coloured ring separates the dot from the land, so the dot's
+     contrast partner is always `--panel` — the pair the token audit checks. */
+  box-shadow: 0 0 0 2px var(--panel), var(--shadow-sm);
+}
+
+.pin.is-selected .pin__dot {
+  width: 15px;
+  height: 15px;
+  box-shadow: 0 0 0 2px var(--panel), 0 0 0 4px var(--accent);
+}
+
+.pin__label {
+  position: absolute;
+  top: 100%;
+  left: 50%;
+  transform: translateX(-50%);
+  margin-top: 3px;
+  padding: 1px 6px;
+  border-radius: 6px;
+  border: 1px solid var(--line);
+  background: var(--panel);
+  color: var(--ink);
+  font-size: 11px;
+  font-weight: 600;
+  line-height: 1.3;
+  white-space: nowrap;
+  box-shadow: var(--shadow-sm);
+}
+
+/* Dimming by a solid grey, never opacity — same rule as the timeline. */
+.pin--muted .pin__dot {
+  background: var(--faint);
+}
+
+.pin--muted .pin__label {
+  color: var(--faint);
+}
+
+.pin--cluster {
+  width: 28px;
+  height: 28px;
+  background: var(--accent);
+  color: var(--panel);
+  box-shadow: 0 0 0 2px var(--panel), var(--shadow-md);
+  font-size: 11px;
+  font-weight: 700;
+}
+
+.pin--cluster:hover {
+  background: var(--focus);
+}
+
+.map__hint {
+  z-index: 10;
+}
+
+/* The map's list of places: the accessible, map-free route to every pin. */
+.map-list {
+  flex: 0 0 340px;
+  overflow: auto;
+  border-left: 1px solid var(--line);
+  background: var(--panel);
+  padding: 12px 16px 18px;
+}
+
+.map-list__title {
+  display: flex;
+  align-items: baseline;
+  gap: 8px;
+  margin: 0 0 10px;
+  font-size: 15px;
+}
+
+.map-list__count {
+  font-size: 12px;
+  font-weight: 600;
+  color: var(--muted);
+}
+
+.map-list__empty {
+  margin: 0;
+  color: var(--muted);
+  font-size: 13px;
+}
+
+.map-list__groups {
+  display: grid;
+  gap: 14px;
+}
+
+.map-list__nation {
+  margin: 0 0 6px;
+  font-size: 12px;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  color: var(--muted);
+}
+
+.map-list__items {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+}
+
+.place-card {
+  display: flex;
+  gap: 10px;
+  width: 100%;
+  text-align: left;
+  background: var(--panel);
+  border: 1px solid var(--line);
+  border-radius: 12px;
+  padding: 10px 12px;
+  margin-bottom: 8px;
+  box-shadow: var(--shadow-sm);
+}
+
+.place-card:hover {
+  border-color: var(--accent);
+}
+
+.place-card[aria-pressed="true"] {
+  border-color: var(--accent);
+  box-shadow: 0 0 0 1px var(--accent), var(--shadow-sm);
+}
+
+.place-card__bar {
+  width: 4px;
+  border-radius: 4px;
+  flex: none;
+}
+
+.place-card__body {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  min-width: 0;
+}
+
+.place-card__meta {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 11.5px;
+  color: var(--muted);
+  font-variant-numeric: tabular-nums;
+}
+
+.place-card__badge {
+  border: 1px dashed var(--line);
+  border-radius: 999px;
+  padding: 0 5px;
+  font-size: 10px;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+}
+
+.place-card__title {
+  font-weight: 600;
+  font-size: 13.5px;
+}
+
+.place-card__desc {
+  font-size: 12px;
+  color: var(--ref-text);
+  display: -webkit-box;
+  -webkit-line-clamp: 2;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
+}
+
+.place-card__chip {
+  align-self: flex-start;
+  margin-top: 4px;
+  border-radius: 999px;
+  padding: 1px 8px;
+  font-size: 11px;
+  font-weight: 600;
+}
+
+.map-stage__loading {
+  flex: 1;
+  display: grid;
+  place-items: center;
+  margin: 0;
+  color: var(--muted);
+  font-size: 13px;
+}
+
 /* ----------------------------------------------------------------- mobile */
 .mode-toggle {
   display: inline-flex;
@@ -1325,8 +1701,39 @@ button {
     display: none;
   }
 
+  /* Stacked: the map takes the country's own shape at full width and the list
+     follows below, with the stage itself scrolling. */
+  .map-stage {
+    flex-direction: column;
+    overflow: auto;
+  }
+
+  .map {
+    flex: 0 0 auto;
+    width: 100%;
+    min-height: 0;
+    aspect-ratio: 628 / 1010;
+  }
+
+  .map-list {
+    flex: 0 0 auto;
+    max-height: none;
+    border-left: 0;
+    border-top: 1px solid var(--line);
+  }
+
+  .map-minimap {
+    width: 92px;
+  }
+
   .marker {
     max-width: 62vw;
+  }
+
+  .pin__label {
+    max-width: 62vw;
+    overflow: hidden;
+    text-overflow: ellipsis;
   }
 
   .app__header {
