@@ -189,6 +189,15 @@ tests/
   would go stale and close the fan. A list also lets two tight groups stay open
   at once. The fan radius grows with the label width so the labels stay
   legible, and is capped so it never becomes a starburst.
+- **A fan is tied to the zoom it was opened at.** Zooming *in* far enough to
+  tell a group apart collapses it on its own, because there is no longer a
+  cluster to fan; zooming back *out* closes it in `changeView` (`next.w >
+  current.w`), because a wider view means groups again — otherwise opening a
+  cluster and zooming out left a starburst of pins floating where the marker
+  used to be. The marker is still there to click, so nothing is lost. Note the
+  order in the two places that zoom *and* fan: `onClusterClick` and the focus
+  effect call `changeView` first and set `spread` after, so the fan they are
+  asking for is not undone by their own zoom.
 - **Selecting a place brings it into view** (`useEffect` on `selectedId`):
   centre it, and zoom so its nearest neighbour clears the cluster radius, so it
   is drawn as its own pin rather than folded into a group — spreading the group
@@ -428,7 +437,8 @@ size.
 - `tests/smoke.test.mjs` (port `4317`) — rendering, zoom, pan, search, category
   filtering (including the isolate gesture and the hover highlight), list mode,
   the annual and population tabs, the map (pins, clustering and spreading out,
-  the place list, the minimap, both cross-links), links and history (a shared
+  zooming back out closing a group, the place list, the minimap, both
+  cross-links), links and history (a shared
   URL restoring the tab, the timeline window, the filters and the panel; junk
   falling back to the defaults; Back/Forward between tabs; a round trip that
   keeps each tab's panel; browsing pins leaving one step back; zoom and typing

@@ -168,7 +168,18 @@ export function MapView({
    */
   const changeView = useCallback(
     (update: (view: MapView) => MapView) => {
-      const next = clampMapView(update(viewRef.current), aspectRef.current);
+      const current = viewRef.current;
+      const next = clampMapView(update(current), aspectRef.current);
+
+      /*
+       * Zooming out is a request for the wider picture, where a group is a group
+       * again — so a group the user opened up closes, rather than staying
+       * exploded over every zoom level. Without this, opening a cluster and then
+       * zooming back out left a starburst of pins floating where the cluster
+       * marker used to be. Clicking the marker opens it again.
+       */
+      if (next.w > current.w + 1e-9) setSpread([]);
+
       viewRef.current = next;
       onViewChange(next);
     },
@@ -231,8 +242,10 @@ export function MapView({
 
   /**
    * The fans currently drawn: any cluster with at least one member the user has
-   * asked to spread out. Zooming out far enough to tell a group apart collapses
-   * its fan on its own, because there is no longer a cluster to fan.
+   * asked to spread out. Zooming *in* far enough to tell a group apart collapses
+   * its fan on its own, because there is no longer a cluster to fan; zooming
+   * back *out* closes it in `changeView`, because a wider view means groups
+   * again.
    */
   const fans = useMemo(
     () =>

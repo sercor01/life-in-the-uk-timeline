@@ -1094,6 +1094,59 @@ test("a place too close to separate is still shown on its own", (t) =>
     assert.ok(shown.leaders > 0, "expected a leader line back to the real position");
   }));
 
+/*
+ * The bug this pins down: a group that was opened up stayed exploded over every
+ * zoom level, so zooming back out left a starburst of pins floating where the
+ * cluster marker used to be. Zooming out is a request for the wider picture,
+ * where a group is a group again — and the marker is still there to click.
+ */
+test("zooming back out closes a group that was opened up", (t) =>
+  withPage(t, async (page) => {
+    await openMap(page);
+    // Big Ben and Westminster Abbey are 300 m apart, so opening them means
+    // spreading them out: a fan is the one thing a zoom can be taken back out of.
+    await clickPlaceCard(page, "Big Ben & the Houses of Parliament");
+    await wait(400);
+    let state = await page.evaluate(() => ({
+      fanned: document.querySelectorAll("[data-fanned]").length,
+      leaders: document.querySelectorAll(".map__link").length,
+    }));
+    assert.ok(state.fanned >= 2, `expected the group spread out, got ${state.fanned} pins`);
+    assert.ok(state.leaders > 0, "expected leader lines back to the real positions");
+
+    const zoomOut = async () => {
+      const box = await page.$eval(".map", (el) => {
+        const r = el.getBoundingClientRect();
+        return { x: r.left + r.width / 2, y: r.top + r.height / 2 };
+      });
+      await page.mouse.move(box.x, box.y);
+      await page.mouse.wheel({ deltaY: 120 });
+      await wait(400);
+    };
+    const spreadState = () =>
+      page.evaluate(() => ({
+        fanned: document.querySelectorAll("[data-fanned]").length,
+        clusters: document.querySelectorAll(".pin--cluster").length,
+      }));
+
+    await zoomOut();
+    state = await spreadState();
+    assert.equal(state.fanned, 0, "zooming out should close the spread group");
+    assert.ok(state.clusters > 0, "and put the cluster marker back");
+
+    // The marker still opens the group — the fan is tied to the zoom it was
+    // asked for at, not thrown away.
+    await page.click(".pin--cluster");
+    await wait(400);
+    state = await spreadState();
+    assert.ok(state.fanned >= 2, `clicking the marker should open the group again, got ${state.fanned}`);
+
+    await zoomOut();
+    state = await spreadState();
+    assert.equal(state.fanned, 0, "and zooming out closes it again");
+    assert.ok(state.clusters > 0, "expected the cluster marker back again");
+  }));
+
 test("the minimap shows the view and moves the map", (t) =>
   withPage(t, async (page) => {
     await openMap(page);
