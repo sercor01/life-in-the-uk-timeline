@@ -99,10 +99,19 @@ export type Selection =
   | { kind: "annual"; event: AnnualEvent }
   | { kind: "place"; place: Place };
 
+/** The three kinds of thing the detail panel can be showing. */
+export type SelectionKind = Selection["kind"];
+
 export interface Category {
   id: CategoryId;
   label: string;
 }
+
+/** The four top-level screens, in the order the switcher lists them. */
+export type Tab = "timeline" | "calendar" | "map" | "population";
+
+/** The timeline tab's two presentations: the graph itself, or a readable list. */
+export type TimelineMode = "timeline" | "list";
 
 export interface ExamQuestion {
   id: number;

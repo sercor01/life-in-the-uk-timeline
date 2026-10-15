@@ -1,3 +1,4 @@
+import { useState } from "react";
 import { CATEGORY_BY_ID, categoryColor, categoryInk, categoryTint } from "../data/categories";
 import { EVENT_BY_ID } from "../data/events";
 import { NATION_BY_ID, placesLinkedTo } from "../data/places";
@@ -5,6 +6,51 @@ import { resolveRefs } from "../data/exams";
 import { formatAnnualDate } from "../lib/dates";
 import { formatRange } from "../lib/lanes";
 import type { Place, Selection, TimelineEvent } from "../types";
+
+/**
+ * Copy a link to this exact view.
+ *
+ * The address bar already carries the whole state (see `useUrlState`), so the
+ * current `href` *is* the deep link — there is nothing to assemble here. The
+ * outcome is announced through a `role="status"` rather than by renaming the
+ * button, because a label change on a button is not reliably read out; the
+ * button keeps its name and only the live region speaks.
+ */
+function CopyLink() {
+  const [status, setStatus] = useState<"idle" | "copied" | "failed">("idle");
+
+  async function copy() {
+    try {
+      await navigator.clipboard.writeText(window.location.href);
+      setStatus("copied");
+    } catch {
+      // A refused permission, or a browser with no clipboard at all.
+      setStatus("failed");
+    }
+  }
+
+  return (
+    <div className="detail__share">
+      <button
+        type="button"
+        className="detail__share-button"
+        // Keeps the visible "Copy link" inside the name, so the label still
+        // matches what is on screen (WCAG 2.5.3) while saying *what* it links to.
+        aria-label="Copy link to this view"
+        onClick={copy}
+      >
+        <span aria-hidden>🔗</span> Copy link
+      </button>
+      <span className="detail__share-status" role="status">
+        {status === "copied"
+          ? "Link copied"
+          : status === "failed"
+            ? "Could not copy — use the address bar"
+            : ""}
+      </span>
+    </div>
+  );
+}
 
 interface Props {
   selection: Selection | null;
@@ -89,6 +135,8 @@ export function DetailPanel({
       <h2>{event.title}</h2>
       <div className="detail__date">{dateLine}</div>
       <p className="detail__summary">{event.summary}</p>
+
+      <CopyLink />
 
       {event.category === "population" && onOpenPopulation && (
         <div className="detail__section">
@@ -194,6 +242,8 @@ function PlaceDetail({
       <h2>{place.name}</h2>
       <div className="detail__date">{place.area ?? NATION_BY_ID[place.nation]}</div>
       <p className="detail__summary">{place.summary}</p>
+
+      <CopyLink />
 
       {linked && onOpenEvent && (
         <div className="detail__section">

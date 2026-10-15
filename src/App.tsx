@@ -1,8 +1,8 @@
 import { Suspense, lazy, useCallback, useMemo, useState } from "react";
-import { CATEGORIES } from "./data/categories";
 import { EVENTS } from "./data/events";
 import { PLACES } from "./data/places";
-import { MIN_SPAN, FULL_VIEW, clampView, toNorm, type ViewWindow } from "./lib/scale";
+import { useUrlState } from "./lib/useUrlState";
+import { visiblePanel } from "./lib/appState";
 import { CalendarView } from "./components/CalendarView";
 import { DetailPanel } from "./components/DetailPanel";
 import { EventListView } from "./components/EventListView";
@@ -11,7 +11,16 @@ import { PlaceList } from "./components/PlaceList";
 import { PopulationView } from "./components/PopulationView";
 import { SearchBar } from "./components/SearchBar";
 import { Timeline } from "./components/Timeline";
-import type { CategoryId, Place, Selection, TimelineEvent } from "./types";
+import type {
+  CategoryId,
+  Place,
+  Selection,
+  Tab,
+  TimelineEvent,
+  TimelineMode,
+} from "./types";
+import type { ViewWindow } from "./lib/scale";
+import type { MapView } from "./lib/mapScale";
 
 /**
  * The map carries the whole UK coastline as committed data, so it is split into
@@ -20,11 +29,6 @@ import type { CategoryId, Place, Selection, TimelineEvent } from "./types";
 const MapView = lazy(() =>
   import("./components/MapView").then((m) => ({ default: m.MapView })),
 );
-
-type Tab = "timeline" | "calendar" | "map" | "population";
-type TimelineMode = "timeline" | "list";
-
-const FOCUS_SPAN = Math.max(MIN_SPAN * 5, 0.05);
 
 const TABS: { id: Tab; label: string }[] = [
   { id: "timeline", label: "Timeline" },
@@ -39,15 +43,15 @@ const MODES: { id: TimelineMode; label: string }[] = [
 ];
 
 export default function App() {
-  const [tab, setTab] = useState<Tab>("timeline");
-  const [mode, setMode] = useState<TimelineMode>("timeline");
-  const [view, setView] = useState<ViewWindow>(FULL_VIEW);
-  const [selected, setSelected] = useState<Selection | null>(null);
-  const [query, setQuery] = useState("");
-  const [active, setActive] = useState<Set<CategoryId>>(
-    () => new Set(CATEGORIES.map((c) => c.id)),
-  );
-  /** Category under the pointer in the legend, emphasised on the timeline. */
+  const [state, send] = useUrlState();
+  const { tab, mode, view, mapView, query, active } = state;
+  /** The panel the current tab is showing; each tab keeps its own (see `panels`). */
+  const selection = visiblePanel(state);
+  /**
+   * The category under the pointer in the legend. Hover is a mouse affordance
+   * with no meaning once the pointer is gone, so it stays local rather than
+   * travelling in the URL with the rest of the state.
+   */
   const [highlight, setHighlight] = useState<CategoryId | null>(null);
 
   const filteredEvents = useMemo(() => {
@@ -62,24 +66,9 @@ export default function App() {
     });
   }, [active, query]);
 
-  const selectEvent = useCallback((event: TimelineEvent) => {
-    setSelected({ kind: "event", event });
-  }, []);
-
-  const selectPlace = useCallback((place: Place) => {
-    setSelected({ kind: "place", place });
-  }, []);
-
-  /** Jump to the map on a place and open its panel. */
-  const focusPlace = useCallback((place: Place) => {
-    setSelected({ kind: "place", place });
-    setTab("map");
-    // As in `focusEvent`: a stale search filter would hide the place's
-    // neighbours, and the map is where the context matters most.
-    setQuery("");
-  }, []);
-
-  /** Places respect the legend categories and the search box, like the timeline. */
+  /**
+   * Places respect the legend categories and the search box, like the timeline.
+   */
   const filteredPlaces = useMemo(() => {
     const q = query.trim().toLowerCase();
     return PLACES.filter((p) => active.has(p.category)).filter((p) => {
@@ -92,84 +81,78 @@ export default function App() {
     });
   }, [active, query]);
 
-  /** Jump the timeline to an event and open its detail panel. */
-  const focusEvent = useCallback((event: TimelineEvent) => {
-    const centre = toNorm(event.year);
-    setView(clampView({ n0: centre - FOCUS_SPAN / 2, n1: centre + FOCUS_SPAN / 2 }));
-    setSelected({ kind: "event", event });
-    setTab("timeline");
-    setMode("timeline");
-    /*
-     * Drop any search text. The box doubles as a live filter, so arriving from
-     * a cross-link with "Hadrian" still in it would leave the whole view
-     * showing one marker, with nothing on screen to explain why — and Reset
-     * only resets the zoom, so it would look stuck.
-     */
-    setQuery("");
-  }, []);
+  /** Open (or replace) the panel this tab shows. */
+  const select = useCallback(
+    (next: Selection) => send({ type: "select", selection: next }),
+    [send],
+  );
 
-  const handlePick = useCallback(
-    (selection: Selection) => {
-      if (selection.kind === "annual") {
-        setSelected(selection);
-        setTab("calendar");
-      } else if (selection.kind === "place") {
-        setSelected(selection);
-        setTab("map");
-      } else {
-        focusEvent(selection.event);
-      }
-    },
-    [focusEvent],
+  const selectEvent = useCallback(
+    (event: TimelineEvent) => send({ type: "select", selection: { kind: "event", event } }),
+    [send],
+  );
+
+  const selectPlace = useCallback(
+    (place: Place) => send({ type: "select", selection: { kind: "place", place } }),
+    [send],
+  );
+
+  /** A search result or a cross-link: jump to wherever it lives. */
+  const pick = useCallback(
+    (next: Selection) => send({ type: "pick", selection: next }),
+    [send],
+  );
+
+  const focusEvent = useCallback(
+    (event: TimelineEvent) => send({ type: "pick", selection: { kind: "event", event } }),
+    [send],
+  );
+
+  const focusPlace = useCallback(
+    (place: Place) => send({ type: "pick", selection: { kind: "place", place } }),
+    [send],
   );
 
   /**
-   * Switching tabs dismisses the detail panel: a selection belongs to the view
-   * it was made in, so carrying it into another tab would leave a stale panel
-   * open. Re-picking the active tab is a no-op and keeps the panel open.
+   * Switching tabs keeps everything: each tab owns its panel, so a round trip
+   * lands you back on the event (or place, or date) you were reading. The panel
+   * of the tab you left is simply not on screen while you are away.
    */
-  const changeTab = useCallback(
-    (next: Tab) => {
-      if (next === tab) return;
-      setSelected(null);
-      setTab(next);
-    },
-    [tab],
+  const changeTab = useCallback((next: Tab) => send({ type: "tab", tab: next }), [send]);
+
+  const setMode = useCallback(
+    (next: TimelineMode) => send({ type: "mode", mode: next }),
+    [send],
   );
 
-  const toggleCategory = useCallback((id: CategoryId) => {
-    setActive((prev) => {
-      const next = new Set(prev);
-      if (next.has(id)) next.delete(id);
-      else next.add(id);
-      return next;
-    });
-  }, []);
+  const setView = useCallback(
+    (next: ViewWindow) => send({ type: "view", view: next }),
+    [send],
+  );
 
-  const toggleAll = useCallback(() => {
-    setActive((prev) =>
-      prev.size === CATEGORIES.length ? new Set() : new Set(CATEGORIES.map((c) => c.id)),
-    );
-  }, []);
+  const setMapView = useCallback(
+    (next: MapView | null) => send({ type: "mapView", view: next }),
+    [send],
+  );
 
-  /**
-   * Grafana-style isolate: show only this category. Repeating it while this is
-   * already the only one on restores everything, so the gesture toggles.
-   */
-  const isolateCategory = useCallback((id: CategoryId) => {
-    setActive((prev) =>
-      prev.size === 1 && prev.has(id)
-        ? new Set(CATEGORIES.map((c) => c.id))
-        : new Set([id]),
-    );
-  }, []);
+  const toggleCategory = useCallback(
+    (id: CategoryId) => send({ type: "toggleCategory", id }),
+    [send],
+  );
+
+  const isolateCategory = useCallback(
+    (id: CategoryId) => send({ type: "isolateCategory", id }),
+    [send],
+  );
+
+  const toggleAll = useCallback(() => send({ type: "toggleAllCategories" }), [send]);
 
   // Only emphasise a category that is actually shown: hovering a hidden chip
   // must not dim the whole timeline down to nothing.
   const litCategory = highlight !== null && active.has(highlight) ? highlight : null;
 
   const selectedId =
-    selected?.kind === "place" ? selected.place.id : selected?.event.id;
+    selection?.kind === "place" ? selection.place.id : selection?.event.id;
 
   return (
     <div className={`app app--${tab}`}>
@@ -211,8 +194,8 @@ export default function App() {
         <SearchBar
           active={active}
           query={query}
-          onQueryChange={setQuery}
-          onPick={handlePick}
+          onQueryChange={(value) => send({ type: "query", query: value })}
+          onPick={pick}
         />
       </header>
 
@@ -239,11 +222,7 @@ export default function App() {
 
         {tab === "calendar" && (
           <div className="stage">
-            <CalendarView
-              active={active}
-              selectedId={selectedId}
-              onSelect={setSelected}
-            />
+            <CalendarView active={active} selectedId={selectedId} onSelect={select} />
           </div>
         )}
 
@@ -252,6 +231,8 @@ export default function App() {
             <Suspense fallback={<p className="map-stage__loading">Loading the map…</p>}>
               <MapView
                 places={filteredPlaces}
+                view={mapView}
+                onViewChange={setMapView}
                 selectedId={selectedId}
                 highlight={litCategory}
                 onSelect={selectPlace}
@@ -272,12 +253,9 @@ export default function App() {
         )}
 
         <DetailPanel
-          selection={selected}
-          onClose={() => setSelected(null)}
-          onOpenPopulation={() => {
-            setSelected(null);
-            setTab("population");
-          }}
+          selection={selection}
+          onClose={() => send({ type: "closePanel" })}
+          onOpenPopulation={() => send({ type: "tab", tab: "population" })}
           onOpenEvent={focusEvent}
           onOpenPlace={focusPlace}
         />

@@ -1,4 +1,5 @@
-import type { Place, NationId } from "../types";
+import type { Place, NationId, TimelineEvent } from "../types";
+import { EVENT_BY_ID } from "./events";
 
 /**
  * Curated places for the map tab.
@@ -619,4 +620,16 @@ export function placesLinkedTo(eventId: string): Place[] {
   return PLACES.filter((p) => p.linkedEventId === eventId).sort(
     (a, b) => b.importance - a.importance || a.name.localeCompare(b.name),
   );
+}
+
+/**
+ * The event a place is the site of, if any — the mirror of `placesLinkedTo`.
+ *
+ * One place names at most one event, which is what lets picking a place on the
+ * map select its date on the timeline without guessing. The direction is
+ * deliberately one-way: an event can have several places, so those stay a list
+ * of links in the panel rather than an automatic jump.
+ */
+export function eventAtPlace(place: Place): TimelineEvent | undefined {
+  return place.linkedEventId ? EVENT_BY_ID[place.linkedEventId] : undefined;
 }

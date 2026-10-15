@@ -38,7 +38,7 @@ scripts/
   build-outline.mjs      # one-off: Natural Earth -> src/data/ukOutline.ts
   validate-places.mjs    # one-off: check places.ts refs/links/coords
 src/
-  App.tsx                # top-level state: tab, view, selection, filters, query, highlight
+  App.tsx                # the shell: wires the state to the views and the legend
   types.ts               # TimelineEvent, AnnualEvent, Place, Category, Selection, ExamRef
   data/
     events.ts            # curated historical events (the main content)
@@ -51,6 +51,9 @@ src/
     exams.ts             # loads exams.json and resolves ExamRef -> question
   lib/
     scale.ts             # piecewise time scale (year <-> normalised 0..1)
+    appState.ts          # the whole app state as one value, and its reducer
+    urlState.ts          # state <-> query string: what a shared link means
+    useUrlState.ts       # keeps the URL and the state equal (push vs replace)
     lanes.ts             # label layout into non-overlapping lanes + date fmt
     ticks.ts             # axis tick years for a view and width
     dates.ts             # month names + annual-date formatting
@@ -221,16 +224,114 @@ tests/
 - **The two views point at each other.** A place's panel links to its
   `linkedEventId` on the timeline; an event's panel links to every place that
   names it (`placesLinkedTo`), because one event can be the site of several —
-  the Norman Conquest is both the Tower of London and Hastings. Both links clear
+  the Norman Conquest is both the Tower of London and Hastings. Those links clear
   the search box (`setQuery("")`) as they navigate. The box doubles as a live
   filter, so leaving "Hadrian" in it made the destination show a single item
   with nothing on screen to explain why, and Reset only resets the zoom, so it
   looked stuck.
+- **Selecting a place also selects the event at it** (`eventAtPlace`), so the
+  timeline follows the point you are looking at: pick St Paul's Cathedral and the
+  timeline is on the Great Fire. It is deliberately one-way — a place names at
+  most one event, while an event can be several places, and those stay a list of
+  links in the panel rather than an automatic jump. A place with no event of its
+  own leaves the timeline alone rather than clearing it. The timeline's *window*
+  is not moved either: the selection follows the point, your zoom stays where you
+  left it.
 - Layout: on wide screens the map and the place list sit side by side, because
   fitting a tall country into a short wide box would leave it tiny with sea
   either side. Below 880px the stage stacks and scrolls, and the map keeps the
   country's own aspect ratio at full width. `.app--<tab>` is on the root for
   this and for hiding the empty detail panel on the map tab.
+
+## Links, history and the URL
+
+The URL is the app's shareable half, and the address bar is the only store:
+`src/lib/useUrlState.ts` reads the query once at boot, writes it back as the
+visitor moves and re-reads it on `popstate`. The state itself still lives in
+React (one `useReducer` in `src/lib/appState.ts`), so no render depends on the
+URL parsing — the two are just kept equal. Nothing server-side is involved: the
+path never changes, so GitHub Pages, the CSP and a pasted link all behave alike.
+
+| param | example | meaning |
+| --- | --- | --- |
+| `tab` | `tab=map` | `timeline` (default), `calendar`, `map`, `population` |
+| `mode` | `mode=list` | Graph (default) or list, on the timeline |
+| `y` | `y=1600,1650` | The timeline's visible years, BC negative. Years rather than the normalised window, because a link is meant to be read; four decimal places because at the deepest zoom the whole window is under two years wide |
+| `m` | `m=290,410,120` | The map's rectangle (centre x, centre y, width) in map units |
+| `sel` | `sel=place:stonehenge` | The panel the named tab is showing: `event:<id>`, `place:<id>` or `annual:<id>`. Each tab keeps its own panel (see below), but a link describes only the one on screen |
+| `q` | `q=war` | The search box, which doubles as the live filter — so a link reproduces exactly the view the sharer had |
+| `off` | `off=arts,sport` | Categories switched *off*. The default is every category on, so the everyday link carries nothing |
+
+`encodeState` writes only what differs from the default, so a bare `/` is the
+whole timeline with everything on. It builds the string by hand rather than with
+`URLSearchParams`, which percent-encodes the `,` and `:` that keep
+`y=1600,1650` and `sel=place:stonehenge` readable at a glance; only `q` is
+escaped. Reading is deliberately forgiving: an unknown id, `y=abc`, a bad `tab`
+— each falls back to the default it would have had, and the first write tidies
+the address bar back to its canonical form. That is what stops a link shared
+before an event was renamed from breaking anything; it simply opens without the
+panel.
+
+**Push vs replace.** `isNavigating(action, state)` decides from both — the rule
+being "what would a visitor expect Back to undo?".
+
+*Pushed*, one step each: changing tab, the graph/list toggle, a category filter,
+and the **first** panel a tab opens, so Back still dismisses a panel, which is
+the whole reason to push one. A push wins when several actions land in one
+commit, so following a link that lands on another tab *and* focuses a place
+costs one Back, not two.
+
+*Replaced*, the entry staying current: zoom, pan, typing, closing a panel, and
+any *further* panel on the same tab. That last pair is why the state is
+consulted and not just the action: wandering from pin to pin on the map is
+looking around rather than a series of journeys, so Back leaves the map instead
+of walking back through every point that was looked at on the way. The same goes
+for a search result picked while already on that tab.
+
+Two more things keep the history honest. `send` runs the reducer once itself, to
+recognise a no-op — re-picking the active tab, or the open marker — and drop it
+before it can re-render or arm a push. And a write whose URL we are already on is
+skipped, with the verb consumed either way, so a change that does not alter the
+URL cannot leave a push lying in wait for the next zoom. React's batching means a
+whole gesture costs one `history` call.
+
+**Each tab keeps its own panel** (`AppState.panels`), because one selection does
+not survive a journey: following an event's place to the map selects that place,
+and coming back to the timeline must not have forgotten the event. Panels are
+keyed by kind — event on the timeline, annual on the calendar, place on the map —
+`visiblePanel` hands the current tab its own, and the URL writes only that one,
+so a shared link stays short and says exactly what the sharer was looking at. A
+tab switch therefore keeps every tab's state instead of restarting it. The
+corollary: a URL cannot express two panels at once, so a Back restores the entry's
+own panel and the other tabs come back empty for that visit.
+
+The two halves of that are stitched together by `followPlace`: selecting a place
+also selects the event at it (`eventAtPlace`), so the timeline's panel tracks the
+point being looked at rather than staying on whatever was open when the map was
+entered. That is what makes "Norman Conquest → Tower of London → St Paul's → back
+to the timeline" land on the Great Fire rather than the event you started from.
+
+**The panel's Copy link button** (`CopyLink` in `DetailPanel.tsx`) does no more
+than copy `location.href`, because the address bar already *is* the deep link.
+It reports through a `role="status"` region rather than renaming itself — a
+button whose label changes is not reliably announced — and its `aria-label`
+keeps the visible "Copy link" inside the accessible name (WCAG 2.5.3). It sits
+under the summary rather than in `.detail__top`, which on a phone is a
+full-width sheet where a third item would squeeze the category chip.
+
+**The map's rectangle had to be lifted out of `MapView`** for any of it to be
+shareable, so `App` owns `mapView` and `MapView` takes `view`/`onViewChange`.
+`null` means "fit the container", not "the fitted rectangle": a fit depends on
+the frame's aspect ratio, so storing one would go stale on the first resize (and
+would put a pointless `m=` in every link). `changeView` still takes an *updater*
+and nudges its own `viewRef` forward as it applies it, so several wheel or pinch
+events in one frame still compose instead of all starting from the same stale
+value.
+
+**Not in the URL, on purpose:** the legend's hover highlight (a mouse affordance
+that means nothing once the pointer is gone), the map's fan-out `spread` (whose
+ids depend on the current frame width) and anything to do with the container's
+size.
 
 ## Conventions
 
@@ -289,6 +390,12 @@ tests/
   `Selection` has three kinds (`event`, `annual`, `place`) and the panel renders
   all three from the same frame, so a place gets the same eyebrow, summary and
   reference cards as an event.
+- **Each tab keeps its own panel** (`AppState.panels`, keyed by the kind of thing
+  it shows, with `visiblePanel` picking the current tab's). Switching tabs does
+  not discard anything, so a round trip — event in the list, follow it to the map,
+  come back — returns you to the event you were reading. The panel of the tab you
+  left is simply not on screen while you are away, which is what keeps it from
+  covering another tab's content (on a phone it is a full-width sheet).
 - **The map is never the only way to reach a place.** The SVG is `aria-hidden`
   and the pins are real buttons with names like "Stonehenge, Wiltshire —
   Prehistory & early Britain"; a cluster announces its members ("5 places close
@@ -317,7 +424,11 @@ tests/
 - `tests/smoke.test.mjs` (port `4317`) — rendering, zoom, pan, search, category
   filtering (including the isolate gesture and the hover highlight), list mode,
   the annual and population tabs, the map (pins, clustering and spreading out,
-  the place list, the minimap, both cross-links) and a phone viewport (no
+  the place list, the minimap, both cross-links), links and history (a shared
+  URL restoring the tab, the timeline window, the filters and the panel; junk
+  falling back to the defaults; Back/Forward between tabs; a round trip that
+  keeps each tab's panel; browsing pins leaving one step back; zoom and typing
+  leaving the history alone; the copy-link button) and a phone viewport (no
   horizontal overflow, bottom sheet opens). Uses `puppeteer-core`.
 - `tests/contrast.test.mjs` (port `4318`) — reads the real CSS custom properties
   in both the light and dark themes and asserts every text pair is >= 4.5:1 and

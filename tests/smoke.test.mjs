@@ -22,7 +22,10 @@ after(async () => {
 });
 
 // ---------------------------------------------------------------- utilities
-async function open(width = 1280, height = 860) {
+/** The preview URL for a path on the served build. */
+const link = (path) => `http://127.0.0.1:${PORT}${path}`;
+
+async function open(width = 1280, height = 860, path = "/") {
   const page = await browser.newPage();
   await page.setViewport({
     width,
@@ -31,21 +34,28 @@ async function open(width = 1280, height = 860) {
     isMobile: width < 700,
     hasTouch: width < 700,
   });
-  await page.goto(`http://127.0.0.1:${PORT}/`, { waitUntil: "networkidle0" });
+  await page.goto(link(path), { waitUntil: "networkidle0" });
   await wait(300);
   return page;
 }
 
 /** Run a test body with a fresh page, or skip it if there is no browser. */
-async function withPage(t, fn, width, height) {
+async function withPage(t, fn, width, height, path) {
   if (!browser) return t.skip(SKIP_CHROME);
-  const page = await open(width, height);
+  const page = await open(width, height, path);
   try {
     await fn(page);
   } finally {
     await page.close();
   }
 }
+
+/** Run a test body against a shared link, as if the visitor had opened one. */
+const withDeepLink = (t, path, fn) => withPage(t, fn, 1280, 860, path);
+
+/** The label of the tab the switcher is marking as current. */
+const currentTab = (page) =>
+  page.$eval('.tabs button[aria-current="true"]', (el) => el.textContent);
 
 const overviewWindow = (page) =>
   page.$eval(".overview__window", (el) => ({
@@ -315,29 +325,40 @@ test("population tab shows the handbook population table", (t) =>
     assert.deepEqual(anchors, ["8m", "20m", "40m", "50m", "67m"]);
   }));
 
-test("switching tabs clears the selected date", (t) =>
+test("switching tabs keeps the panel each tab was showing", (t) =>
   withPage(t, async (page) => {
     await page.click(".marker");
     await wait(250);
-    assert.ok(
-      await page.$(".detail h2"),
-      "expected the detail panel to open after picking a marker",
-    );
+    const opened = await page.$eval(".detail h2", (el) => el.textContent);
+    assert.ok(opened.length > 0, "expected the detail panel to open after picking a marker");
 
     // Re-picking the active tab is a no-op and leaves the panel open.
     await clickByText(page, ".tabs button", "Timeline");
     await wait(200);
-    assert.ok(await page.$(".detail h2"), "expected the panel to stay open");
+    assert.equal(await page.$eval(".detail h2", (el) => el.textContent), opened);
 
-    // Moving to another tab dismisses it.
+    // Another tab has no panel of its own, so the timeline's gives way to that
+    // tab's content — but nothing is thrown away.
     await clickByText(page, ".tabs button", "Population");
     await wait(250);
     const panel = await page.evaluate(() => ({
       empty: !!document.querySelector(".detail--empty"),
       heading: document.querySelector(".detail h2")?.textContent ?? "",
     }));
-    assert.ok(panel.empty, "expected the selection to be cleared");
+    assert.ok(panel.empty, "the timeline's panel does not follow you to another tab");
     assert.equal(panel.heading, "Pick a date");
+
+    // Coming back restores it, marker and all.
+    await clickByText(page, ".tabs button", "Timeline");
+    await wait(300);
+    const restored = await page.evaluate(() => ({
+      title: document.querySelector(".detail h2")?.textContent ?? "",
+      pressed: document.querySelector(".marker[aria-pressed='true']")?.textContent ?? "",
+      params: location.search,
+    }));
+    assert.equal(restored.title, opened, "the event should still be open");
+    assert.ok(restored.pressed.length > 0, "expected the marker still marked as selected");
+    assert.match(restored.params, /(^|[?&])sel=event:/, "and the URL should still name it");
   }));
 
 test("population tab fits a phone without overflow", (t) =>
@@ -1241,5 +1262,392 @@ test("the view switcher uses aria-current rather than a tablist", (t) =>
     assert.equal(state.current, "Population");
     assert.equal(state.othersMarked, false, "only the active tab may be marked");
     assert.equal(state.othersStyled, false, "inactive tabs must not look selected");
+  }));
+
+// -------------------------------------------------------- links and history
+// The URL is the app's shareable half, and Back has to undo a journey rather
+// than a wheel notch. These pin the two halves of that promise.
+
+/*
+ * Once you are on the map, wandering from point to point must not turn into a
+ * trail of Back presses: one press has to leave the map, not walk back through
+ * every pin looked at on the way.
+ */
+test("browsing points on the map is still one step back to the timeline", (t) =>
+  withPage(t, async (page) => {
+    await page.type(".search input", "Hadrian");
+    await wait(250);
+    await page.click(".search__item");
+    await wait(350);
+    await clickByText(page, ".detail__cta", "on the map");
+    await page.waitForSelector(".map__region", { timeout: 5000 });
+    await wait(450);
+    assert.equal(
+      await page.$eval(".detail h2", (el) => el.textContent),
+      "Hadrian's Wall",
+    );
+
+    // Somewhere else entirely, chosen from the place list.
+    await clickPlaceCard(page, "Stonehenge");
+    await wait(450);
+    assert.equal(await page.$eval(".detail h2", (el) => el.textContent), "Stonehenge");
+    assert.match(await page.evaluate(() => location.search), /sel=place(:|%3A)stonehenge/);
+
+    // One Back leaves the map — it does not land on Hadrian's Wall again.
+    await page.goBack();
+    await wait(500);
+    const after = await page.evaluate(() => ({
+      tab: document.querySelector('.tabs button[aria-current="true"]')?.textContent,
+      panel: document.querySelector(".detail h2")?.textContent ?? "",
+    }));
+    assert.equal(after.tab, "Timeline", "Back should leave the map altogether");
+    assert.equal(after.panel, "Hadrian's Wall built");
+
+    // Forward comes back to the point that was actually being looked at.
+    await page.goForward();
+    await wait(550);
+    const forward = await page.evaluate(() => ({
+      tab: document.querySelector('.tabs button[aria-current="true"]')?.textContent,
+      panel: document.querySelector(".detail h2")?.textContent ?? "",
+      sel: new URLSearchParams(location.search).get("sel"),
+    }));
+    assert.equal(forward.tab, "Map");
+    assert.equal(forward.panel, "Stonehenge");
+    assert.equal(forward.sel, "place:stonehenge");
+  }));
+
+/*
+ * The two views point at each other, so picking a point on the map picks its
+ * date on the timeline too. Looking at a place must not leave the timeline
+ * behind on whatever was open before.
+ */
+test("picking a point on the map moves the timeline to the event there", (t) =>
+  withPage(t, async (page) => {
+    await page.type(".search input", "Norman Conquest");
+    await wait(250);
+    await page.click(".search__item");
+    await wait(400);
+    assert.equal(
+      await page.$eval(".detail h2", (el) => el.textContent),
+      "Norman Conquest",
+    );
+
+    // Following the event's *own* place keeps the event: the Tower of London
+    // points straight back at the Norman Conquest.
+    await clickByText(page, ".detail__cta", "on the map");
+    await page.waitForSelector(".map__region", { timeout: 5000 });
+    await wait(450);
+    assert.equal(
+      await page.$eval(".detail h2", (el) => el.textContent),
+      "Tower of London",
+    );
+    await clickByText(page, ".tabs button", "Timeline");
+    await wait(400);
+    assert.equal(
+      await page.$eval(".detail h2", (el) => el.textContent),
+      "Norman Conquest",
+    );
+
+    // Looking at St Paul's instead *does* move the timeline on, to the event
+    // that happened there.
+    await clickByText(page, ".tabs button", "Map");
+    await page.waitForSelector(".map__region", { timeout: 5000 });
+    await wait(450);
+    await clickPlaceCard(page, "St Paul's Cathedral");
+    await wait(450);
+    assert.equal(
+      await page.$eval(".detail h2", (el) => el.textContent),
+      "St Paul's Cathedral",
+    );
+
+    await clickByText(page, ".tabs button", "Timeline");
+    await wait(400);
+    const onTimeline = await page.evaluate(() => ({
+      panel: document.querySelector(".detail h2")?.textContent ?? "",
+      sel: new URLSearchParams(location.search).get("sel"),
+    }));
+    assert.equal(onTimeline.panel, "Great Fire of London");
+    assert.equal(onTimeline.sel, "event:great-fire");
+
+    // And the map still holds its own point, for the way back.
+    await clickByText(page, ".tabs button", "Map");
+    await page.waitForSelector(".map__region", { timeout: 5000 });
+    await wait(450);
+    const onMap = await page.evaluate(() => ({
+      panel: document.querySelector(".detail h2")?.textContent ?? "",
+      pin: document.querySelector(".pin[aria-pressed='true']")?.getAttribute("data-place"),
+      sel: new URLSearchParams(location.search).get("sel"),
+    }));
+    assert.equal(onMap.panel, "St Paul's Cathedral");
+    assert.equal(onMap.pin, "st-pauls-cathedral");
+    assert.equal(onMap.sel, "place:st-pauls-cathedral");
+
+    // A place the timeline has nothing to say about leaves it alone, rather
+    // than clearing or disturbing what was open.
+    await clickPlaceCard(page, "Loch Ness");
+    await wait(450);
+    await clickByText(page, ".tabs button", "Timeline");
+    await wait(400);
+    assert.equal(
+      await page.$eval(".detail h2", (el) => el.textContent),
+      "Great Fire of London",
+      "a place with no event of its own should not disturb the timeline",
+    );
+  }));
+
+/** Click the list-mode card for an event by its exact title. */
+const clickEventCard = (page, title) =>
+  page.evaluate((t) => {
+    const card = [...document.querySelectorAll(".card")].find(
+      (c) => c.querySelector(".card__title")?.textContent === t,
+    );
+    if (!card) throw new Error(`no event card titled "${t}"`);
+    card.click();
+  }, title);
+
+/*
+ * The journey that used to lose the thread: read an event in the list, follow it
+ * to its place on the map, then come back to the list. Coming back must not have
+ * forgotten the event — and the map must keep both its rectangle and the panel
+ * it had, or the round trip is a one-way trip.
+ */
+test("a round trip through the map keeps both tabs' panels", (t) =>
+  withPage(t, async (page) => {
+    await clickByText(page, ".mode-toggle button", "List");
+    await wait(250);
+    await clickEventCard(page, "Great Fire of London");
+    await wait(300);
+    assert.equal(
+      await page.$eval(".detail h2", (el) => el.textContent),
+      "Great Fire of London",
+    );
+
+    // The event's panel links to its place, which is in London and so needs the
+    // map to zoom in: the rectangle is part of the journey.
+    await clickByText(page, ".detail__cta", "on the map");
+    await page.waitForSelector(".map__region", { timeout: 5000 });
+    await wait(450);
+    const onMap = await page.evaluate(() => ({
+      panel: document.querySelector(".detail h2")?.textContent ?? "",
+      rect: new URLSearchParams(location.search).get("m"),
+    }));
+    assert.equal(onMap.panel, "St Paul's Cathedral");
+    assert.ok(onMap.rect, "expected the focus to record where the map was looking");
+
+    await clickByText(page, ".tabs button", "Timeline");
+    await wait(400);
+    const onList = await page.evaluate(() => ({
+      list: !!document.querySelector(".list__year"),
+      panel: document.querySelector(".detail h2")?.textContent ?? "",
+      card:
+        document.querySelector(".card[aria-pressed='true'] .card__title")?.textContent ?? "",
+      params: location.search,
+    }));
+    assert.ok(onList.list, "expected to be back in the list");
+    assert.equal(onList.panel, "Great Fire of London", "the event should still be open");
+    assert.equal(onList.card, "Great Fire of London", "and still marked in the list");
+    assert.match(onList.params, /(^|[?&])sel=event:great-fire(&|$)/);
+
+    // And the map remembers its side too, down to the rectangle.
+    await clickByText(page, ".tabs button", "Map");
+    await page.waitForSelector(".map__region", { timeout: 5000 });
+    await wait(450);
+    const backOnMap = await page.evaluate(() => ({
+      panel: document.querySelector(".detail h2")?.textContent ?? "",
+      pin: document.querySelector(".pin[aria-pressed='true']")?.getAttribute("data-place"),
+      rect: new URLSearchParams(location.search).get("m"),
+    }));
+    assert.equal(backOnMap.panel, "St Paul's Cathedral");
+    assert.equal(backOnMap.pin, "st-pauls-cathedral");
+    assert.equal(backOnMap.rect, onMap.rect, "the map should be where it was left");
+  }));
+
+
+test("a shared link restores the tab, the filters and the open panel", (t) =>
+  withDeepLink(t, "/?tab=map&sel=place:stonehenge&off=sport", async (page) => {
+    await page.waitForSelector(".map__region", { timeout: 5000 });
+    await wait(400);
+
+    const state = await page.evaluate(() => ({
+      tab: document.querySelector('.tabs button[aria-current="true"]')?.textContent,
+      title: document.querySelector(".detail h2")?.textContent ?? "",
+      pin: document
+        .querySelector('.pin[data-place="stonehenge"]')
+        ?.getAttribute("aria-pressed"),
+      hidden: [...document.querySelectorAll(".legend__item")]
+        .filter((el) => el.getAttribute("aria-pressed") === "false")
+        .map((el) => el.getAttribute("data-category")),
+      params: location.search,
+    }));
+
+    assert.equal(state.tab, "Map");
+    assert.equal(state.title, "Stonehenge");
+    assert.equal(state.pin, "true", "expected the deep-linked place to be selected");
+    assert.deepEqual(state.hidden, ["sport"]);
+    // The URL carries the state, so it must not have lost what it was read from.
+    assert.match(state.params, /(^|[?&])tab=map(&|$)/);
+    assert.match(state.params, /(^|[?&])sel=place(:|%3A)stonehenge(&|$)/);
+    assert.match(state.params, /(^|[?&])off=sport(&|$)/);
+  }));
+
+test("a shared link restores an event, a date and the timeline window", (t) =>
+  withPage(t, async (page) => {
+    // A named event lands on the timeline with its panel open, at the zoom a
+    // real visit would have given it.
+    await page.goto(link("/?sel=event:magna-carta"), { waitUntil: "networkidle0" });
+    await wait(400);
+    assert.equal(await currentTab(page), "Timeline");
+    assert.equal(
+      await page.$eval(".detail h2", (el) => el.textContent),
+      "Magna Carta",
+    );
+
+    // An annual date lands on the calendar tab and hydrates from the data.
+    await page.goto(link("/?tab=calendar&sel=annual:ann-christmas"), {
+      waitUntil: "networkidle0",
+    });
+    await wait(400);
+    assert.equal(await currentTab(page), "Annual dates");
+    assert.equal(await page.$eval(".detail h2", (el) => el.textContent), "Christmas Day");
+
+    // A year window is readable in the link and restored as itself.
+    await page.goto(link("/?y=1500,1600&off=sport,arts&q=tudor"), {
+      waitUntil: "networkidle0",
+    });
+    await wait(400);
+    const zoomed = await page.evaluate(() => ({
+      search: document.querySelector(".search input").value,
+      hidden: [...document.querySelectorAll(".legend__item")]
+        .filter((el) => el.getAttribute("aria-pressed") === "false")
+        .map((el) => el.getAttribute("data-category"))
+        .sort(),
+      params: location.search,
+    }));
+    const window1500 = await overviewWindow(page);
+    assert.equal(zoomed.search, "tudor", "the search box should return as it was");
+    assert.deepEqual(zoomed.hidden, ["arts", "sport"]);
+    assert.match(zoomed.params, /(^|[?&])y=1500(,|%2C)1600(&|$)/);
+    // 1500–1600 is 4.25% of the axis, so a window of that order is the proof
+    // that the years — not just the tab — came back.
+    assert.ok(
+      window1500.width > 1 && window1500.width < 12,
+      `expected a four-decade window, got ${window1500.width}%`,
+    );
+  }));
+
+test("Back and Forward move between tabs and each keeps its view", (t) =>
+  withPage(t, async (page) => {
+    const box = await (await page.$(".timeline")).boundingBox();
+    await page.mouse.move(box.x + box.width * 0.65, box.y + box.height * 0.5);
+    for (let i = 0; i < 5; i++) {
+      await page.mouse.wheel({ deltaY: -120 });
+      await wait(40);
+    }
+    await wait(250);
+    const zoomed = await overviewWindow(page);
+    assert.ok(zoomed.width < 99, `expected the wheel to zoom in (${zoomed.width}%)`);
+
+    await clickByText(page, ".tabs button", "Annual dates");
+    await wait(300);
+    assert.equal(await currentTab(page), "Annual dates");
+
+    await page.goBack();
+    await wait(400);
+    assert.equal(await currentTab(page), "Timeline", "Back should restore the tab");
+    const restored = await overviewWindow(page);
+    assert.ok(
+      Math.abs(restored.width - zoomed.width) < 1,
+      `the timeline should come back where it was left (${zoomed.width}% -> ${restored.width}%)`,
+    );
+
+    await page.goForward();
+    await wait(400);
+    assert.equal(await currentTab(page), "Annual dates", "Forward should go back to it");
+  }));
+
+test("zooming, panning and typing overwrite the entry, not the history", (t) =>
+  withPage(t, async (page) => {
+    const before = await page.evaluate(() => history.length);
+
+    // Re-picking the same marker is not a second journey: the URL it would
+    // write is the one already in the bar, so nothing is written at all.
+    await page.click(".marker");
+    await wait(250);
+    const opened = await page.evaluate(() => history.length);
+    assert.equal(opened, before + 1, "opening a panel is one Back");
+    await page.click(".marker");
+    await wait(250);
+    assert.equal(await page.evaluate(() => history.length), opened);
+
+    const box = await (await page.$(".timeline")).boundingBox();
+    await page.mouse.move(box.x + box.width * 0.5, box.y + box.height * 0.5);
+    for (let i = 0; i < 6; i++) {
+      await page.mouse.wheel({ deltaY: -120 });
+      await wait(30);
+    }
+    await search(page, "magna");
+    await wait(250);
+
+    assert.equal(
+      await page.evaluate(() => history.length),
+      opened,
+      "a stream of view changes must not become a pile of Back presses",
+    );
+
+    // A discrete journey still gets its own entry, so Back can undo it.
+    await clickByText(page, ".tabs button", "Annual dates");
+    await wait(300);
+    assert.equal(await page.evaluate(() => history.length), opened + 1);
+  }));
+
+test("junk in a URL falls back to the defaults and is tidied away", (t) =>
+  withDeepLink(
+    t,
+    "/?tab=nope&mode=nope&y=abc&m=1,2&sel=event:nope&off=nope&q=%20",
+    async (page) => {
+      await wait(400);
+      const state = await page.evaluate(() => ({
+        tab: document.querySelector('.tabs button[aria-current="true"]')?.textContent,
+        empty: !!document.querySelector(".detail--empty"),
+        list: !!document.querySelector(".list__year"),
+        hidden: document.querySelectorAll('.legend__item[aria-pressed="false"]').length,
+        params: location.search,
+      }));
+      assert.equal(state.tab, "Timeline");
+      assert.ok(state.empty, "an unknown id must not open a panel");
+      assert.equal(state.list, false, "an unknown mode must mean the graph");
+      assert.equal(state.hidden, 0, "an unknown category must stay visible");
+      assert.equal(state.params, "", "the tidied link should be bare again");
+    },
+  ));
+
+test("the copy link button copies this exact view", (t) =>
+  withPage(t, async (page) => {
+    // Stand in for the clipboard so the test reads what would have been copied.
+    await page.evaluate(() => {
+      window.__copied = null;
+      Object.defineProperty(navigator, "clipboard", {
+        configurable: true,
+        value: {
+          writeText: async (text) => {
+            window.__copied = text;
+          },
+        },
+      });
+    });
+
+    await page.click(".marker");
+    await wait(300);
+    await page.click(".detail__share-button");
+    await wait(200);
+
+    const result = await page.evaluate(() => ({
+      copied: window.__copied,
+      href: location.href,
+      status: document.querySelector(".detail__share-status")?.textContent ?? "",
+    }));
+    assert.match(result.copied ?? "", /(^|[?&])sel=event:/, "the link should name the event");
+    assert.equal(result.copied, result.href, "the address bar already is the link");
+    assert.equal(result.status, "Link copied");
   }));
 

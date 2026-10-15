@@ -19,6 +19,15 @@ import { TimelineControls } from "./TimelineControls";
 
 interface Props {
   places: Place[];
+  /**
+   * The visible rectangle, or null while the map is framing itself. Null means
+   * "fit the container", which is why the parent stores null rather than a
+   * fitted rectangle: a fit depends on the frame's aspect ratio, so a stored
+   * one would go stale on the first resize.
+   */
+  view: MapView | null;
+  /** Moved by a gesture; the parent owns the value so a link can carry it. */
+  onViewChange: (view: MapView | null) => void;
   selectedId?: string;
   /** Category to emphasise; every other category is greyed while it is set. */
   highlight: CategoryId | null;
@@ -102,7 +111,14 @@ interface RenderPin {
 /** A pin this far outside the frame is not drawn at all. */
 const PIN_MARGIN = 16;
 
-export function MapView({ places, selectedId, highlight, onSelect }: Props) {
+export function MapView({
+  places,
+  view: stored,
+  onViewChange,
+  selectedId,
+  highlight,
+  onSelect,
+}: Props) {
   const pinsRef = useRef<HTMLDivElement>(null);
   const [size, setSize] = useState({ width: 0, height: 0 });
   const { width, height } = size;
@@ -112,12 +128,12 @@ export function MapView({ places, selectedId, highlight, onSelect }: Props) {
   const sizeRef = useRef(size);
   sizeRef.current = size;
 
-  // The view is null until the container has been measured, so the first paint
-  // always frames the whole map rather than guessing the shape of the stage.
-  const [stored, setStored] = useState<MapView | null>(null);
-  /** Once the user has moved the map, a resize must not yank the view back. */
-  const touched = useRef(false);
-
+  /*
+   * Until the user moves the map the view is derived from the container, so it
+   * follows a resize; after that it is whatever they left, re-clamped to the new
+   * shape. Both live in one expression because `stored` is null exactly until
+   * the first gesture.
+   */
   const view = useMemo(
     () => clampMapView(stored ?? fitView(aspect), aspect),
     [stored, aspect],
@@ -141,14 +157,23 @@ export function MapView({ places, selectedId, highlight, onSelect }: Props) {
   /** Set when a cluster is expanded, so keyboard focus can follow the members. */
   const focusFan = useRef(false);
 
-  // The updater form lets several wheel or pinch events in one frame compose,
-  // instead of each one starting from the same stale view.
-  const changeView = useCallback((update: (view: MapView) => MapView) => {
-    touched.current = true;
-    setStored((prev) =>
-      update(clampMapView(prev ?? fitView(aspectRef.current), aspectRef.current)),
-    );
-  }, []);
+  /**
+   * Apply an update to the *current* view.
+   *
+   * The updater form is what lets several wheel or pinch events in one frame
+   * compose — each builds on the last, not on the same stale value — and
+   * `viewRef` is nudged forward in the same breath, so an update landing before
+   * React re-renders still starts from the right place. The parent owns the
+   * result; owning it is what lets a shared link carry it and Back restore it.
+   */
+  const changeView = useCallback(
+    (update: (view: MapView) => MapView) => {
+      const next = clampMapView(update(viewRef.current), aspectRef.current);
+      viewRef.current = next;
+      onViewChange(next);
+    },
+    [onViewChange],
+  );
 
   const { containerRef, grabbing, zoomCentre, handlers } = useMapGestures({
     view,
@@ -164,13 +189,10 @@ export function MapView({ places, selectedId, highlight, onSelect }: Props) {
     const measure = () => {
       const rect = el.getBoundingClientRect();
       setSize({ width: rect.width, height: rect.height });
-      // Re-frame on the first measure, and again on resize *until* the user has
-      // taken over; after that a resize only re-clamps the view.
-      if (!touched.current) {
-        const a = rect.width > 0 ? rect.height / rect.width : DEFAULT_ASPECT;
-        setStored(fitView(a));
-      }
     };
+    // No re-framing to do here: while `stored` is null the view is derived from
+    // the container, so it follows a resize on its own, and once the user has
+    // taken over it is theirs and only gets re-clamped.
     measure();
     const ro = new ResizeObserver(measure);
     ro.observe(el);
@@ -560,9 +582,9 @@ export function MapView({ places, selectedId, highlight, onSelect }: Props) {
         canZoomOut={canZoomOut}
         onZoom={zoomCentre}
         onReset={() => {
-          touched.current = false;
+          // Null is the derived fit: the container's own aspect ratio decides.
           setSpread([]);
-          setStored(fitView(aspect));
+          onViewChange(null);
         }}
       />
     </div>
