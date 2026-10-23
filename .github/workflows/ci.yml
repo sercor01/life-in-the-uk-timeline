@@ -4,6 +4,11 @@ name: CI
 # deploy cannot happen without it. It deliberately has no `push` trigger of its
 # own: main already gets exactly one run through deploy.yml, and a second one
 # would only duplicate the work.
+#
+# Node 24, not 20: lighthouse needs >=22.19 and puppeteer-core >=22.12, and the
+# runners now force every Node 20 action onto 24 anyway. Both jobs stay on the
+# same version, so the lockfile is always validated by the npm that ships with
+# it; package.json's `engines` field states the floor.
 on:
   pull_request:
   workflow_call:
@@ -23,11 +28,11 @@ jobs:
   verify:
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v5
 
-      - uses: actions/setup-node@v4
+      - uses: actions/setup-node@v5
         with:
-          node-version: 20
+          node-version: 24
           cache: npm
 
       - run: npm ci
@@ -54,11 +59,11 @@ jobs:
   suites:
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v5
 
-      - uses: actions/setup-node@v4
+      - uses: actions/setup-node@v5
         with:
-          node-version: 20
+          node-version: 24
           cache: npm
 
       - run: npm ci
